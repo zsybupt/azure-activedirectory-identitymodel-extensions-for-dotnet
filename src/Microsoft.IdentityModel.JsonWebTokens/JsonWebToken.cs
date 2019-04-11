@@ -66,10 +66,8 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
             // JWS or JWE
             if (count == JwtConstants.JwsSegmentCount || count == JwtConstants.JweSegmentCount)
-            {
-                var tokenParts = jwtEncodedString.Split('.');
-                Decode(tokenParts, jwtEncodedString);
-            } else
+                Decode(jwtEncodedString.Split('.'), jwtEncodedString);
+            else
                 throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14100, jwtEncodedString)));
         }
 
@@ -189,7 +187,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                         AddClaimsFromJToken(claims, entry.Key, jtoken, issuer);
                         continue;
                     }
-
                 }
 
                 return claims;

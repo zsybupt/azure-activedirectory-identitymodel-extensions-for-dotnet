@@ -40,7 +40,7 @@ using TokenLogMessages = Microsoft.IdentityModel.Tokens.LogMessages;
 namespace Microsoft.IdentityModel.JsonWebTokens
 {
     /// <summary>
-    /// A <see cref="SecurityTokenHandler"/> designed for creating and validating Json Web Tokens. 
+    /// A <see cref="TokenHandler"/> designed for creating and validating Json Web Tokens.
     /// See: http://tools.ietf.org/html/rfc7519 and http://www.rfc-editor.org/info/rfc7515.
     /// </summary>
     public class JsonWebTokenHandler : TokenHandler
@@ -350,7 +350,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
                     identity.AddClaim(claim);
                 }
-                
             }
 
             return identity;
@@ -404,7 +403,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 throw LogHelper.LogArgumentNullException(nameof(validationParameters));
 
             if (string.IsNullOrEmpty(jwtToken.Enc))
-                throw LogHelper.LogExceptionMessage(new SecurityTokenException(LogHelper.FormatInvariant(TokenLogMessages.IDX10612)));
+                throw LogHelper.LogExceptionMessage(new SecurityTokenException(TokenLogMessages.IDX10612));
 
             var keys = GetContentEncryptionKeys(jwtToken, validationParameters);
             var decryptionSucceeded = false;
