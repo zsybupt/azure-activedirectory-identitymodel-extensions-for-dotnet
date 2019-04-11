@@ -32,32 +32,32 @@ using System.Security.Claims;
 namespace Microsoft.IdentityModel.Tokens
 {
     /// <summary>
-    /// Contains some information which used to create a security token.
+    /// Contains information to create a security token.
     /// </summary>
     public class SecurityTokenDescriptor
     {
         /// <summary>
-        /// Gets or sets the value of the 'audience' claim.
+        /// Gets or sets the value of the audience of the security token.
         /// </summary>
         public string Audience { get; set; }
 
         /// <summary>
-        /// Defines the compression algorithm that will be used to compress the JWT token payload.
+        /// Defines the compression algorithm that will be used to compress the security token.
         /// </summary>
         public string CompressionAlgorithm { get; set; }
 
         /// <summary>
-        /// Gets or sets the <see cref="EncryptingCredentials"/> used to create a encrypted security token.
+        /// Gets or sets the <see cref="EncryptingCredentials"/> used to encrypted the security token.
         /// </summary>
         public EncryptingCredentials EncryptingCredentials { get; set; }
 
         /// <summary>
-        /// Gets or sets the value of the 'expiration' claim.
+        /// Gets or sets the time the security token expires.
         /// </summary>
         public DateTime? Expires { get; set; }
 
         /// <summary>
-        /// Gets or sets the issuer of this <see cref="SecurityTokenDescriptor"/>.
+        /// Gets or sets the issuer of the security token.
         /// </summary>
         public string Issuer { get; set; }
 
@@ -67,24 +67,24 @@ namespace Microsoft.IdentityModel.Tokens
         public DateTime? IssuedAt { get; set; }
 
         /// <summary>
-        /// Gets or sets the notbefore time for the security token.
+        /// Gets or sets the time the security token is valid for use.
         /// </summary>
         public DateTime? NotBefore { get; set; }
 
         /// <summary>
-        /// Gets or sets the <see cref="Dictionary{TKey, TValue}"/> which represents the claims that will be used when creating a security token.
+        /// Gets or sets the <see cref="Dictionary{TKey, TValue}"/> for the claims in the security token.
         /// </summary>
         public IDictionary<string, object> Claims { get; set; }
 
         /// <summary>
-        /// Gets or sets the <see cref="SigningCredentials"/> used to create a security token.
+        /// Gets or sets the <see cref="SigningCredentials"/> used to sign the security token.
         /// </summary>
         public SigningCredentials SigningCredentials { get; set; }
 
         /// <summary>
-        /// Gets or sets the <see cref="ClaimsIdentity"/>.
+        /// Gets or sets the <see cref="ClaimsIdentity"/> for the claims in the security token.
         /// </summary>
-        [Obsolete("SecurityTokenDescriptor.Subject is obsolete, please use SecurityTokenDescriptor.Payload instead.")]
+        [Obsolete("SecurityTokenDescriptor.Subject is obsolete, please use SecurityTokenDescriptor.Claims.")]
         public ClaimsIdentity Subject { get; set; }
     }
 }

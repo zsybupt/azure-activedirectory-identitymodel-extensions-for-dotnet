@@ -48,7 +48,7 @@ Write-Host "slnFile:         " $slnFile;
 
 [xml]$buildConfiguration = Get-Content $PSScriptRoot\buildConfiguration.xml
 $artifactsRoot = "$root\artifacts";
-$dotnetexe = "$dotnetDir\dotnet.exe";
+$dotnetexe = "dotnet.exe";
 $nugetVersion = $buildConfiguration.SelectSingleNode("root/nugetVersion").InnerText;
 $releaseVersion = [string]$buildConfiguration.SelectSingleNode("root/release").InnerText;
 $nugetPreview = $buildConfiguration.SelectSingleNode("root/nugetPreview").InnerText;
