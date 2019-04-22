@@ -352,6 +352,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             else
                 Header = header;
 
+            TokenParts = tokenParts;
             if (tokenParts.Length == JwtConstants.JweSegmentCount)
                 DecodeJwe(tokenParts);
             else
@@ -359,6 +360,8 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 
             EncodedToken = rawData;
         }
+
+        internal string[] TokenParts{ get; set; }
 
         private void AddClaimsFromJToken(List<Claim> claims, string claimType, JToken jtoken, string issuer)
         {

@@ -25,16 +25,17 @@
 //
 //------------------------------------------------------------------------------
 
-using Microsoft.IdentityModel.Json;
-using Microsoft.IdentityModel.Json.Linq;
-using Microsoft.IdentityModel.Logging;
-using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using Microsoft.IdentityModel.Json;
+using Microsoft.IdentityModel.Json.Linq;
+using Microsoft.IdentityModel.Logging;
+using Microsoft.IdentityModel.Tokens;
 using TokenLogMessages = Microsoft.IdentityModel.Tokens.LogMessages;
 
 namespace Microsoft.IdentityModel.JsonWebTokens
@@ -382,6 +383,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             return decompressedBytes != null ? Encoding.UTF8.GetString(decompressedBytes) : throw LogHelper.LogExceptionMessage(new InvalidOperationException(LogHelper.FormatInvariant(TokenLogMessages.IDX10679, algorithm)));
         }
 
+
         /// <summary>
         /// Decrypts a JWE and returns the clear text 
         /// </summary>
@@ -405,6 +407,11 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (string.IsNullOrEmpty(jwtToken.Enc))
                 throw LogHelper.LogExceptionMessage(new SecurityTokenException(TokenLogMessages.IDX10612));
 
+            return DecryptTokenInternal(jwtToken, validationParameters);
+        }
+
+        internal string DecryptTokenInternal(JsonWebToken jwtToken, TokenValidationParameters validationParameters)
+        {
             var keys = GetContentEncryptionKeys(jwtToken, validationParameters);
             var decryptionSucceeded = false;
             byte[] decryptedTokenBytes = null;
@@ -814,6 +821,59 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// <param name="token">A 'JSON Web Token' (JWT) in JWS or JWE Compact Serialization Format.</param>
         /// <param name="validationParameters">A <see cref="TokenValidationParameters"/>  required for validation.</param>
         /// <returns>A <see cref="TokenValidationResult"/></returns>
+        public virtual async Task<TokenValidationResult> ValidateTokenAsync(string token, TokenValidationParameters validationParameters)
+        {
+            if (string.IsNullOrEmpty(token))
+                return new TokenValidationResult { Exception = LogHelper.LogArgumentNullException(nameof(token)) };
+
+            if (validationParameters == null)
+                return new TokenValidationResult { Exception = LogHelper.LogArgumentNullException(nameof(validationParameters)) };
+
+            if (token.Length > MaximumTokenSizeInBytes)
+                return new TokenValidationResult { Exception = LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(TokenLogMessages.IDX10209, token.Length, MaximumTokenSizeInBytes))) };
+
+            return await ValidateTokenInternalAsync(token, validationParameters);
+        }
+
+        internal async Task<TokenValidationResult> ValidateTokenInternalAsync(string token, TokenValidationParameters validationParameters)
+        {
+            try
+            {
+                var jwtToken = new JsonWebToken(token);
+                if (jwtToken.TokenParts.Length == JwtConstants.JweSegmentCount)
+                {
+                    var decryptedJwt = await Task.Run(() => DecryptTokenInternal(jwtToken, validationParameters));
+                    jwtToken.InnerToken = await Task.Run(() => ValidateSignature(decryptedJwt, validationParameters));
+                    var innerTokenValidationResult = ValidateTokenPayload(jwtToken.InnerToken, validationParameters);
+                    return new TokenValidationResult
+                    {
+                        SecurityToken = jwtToken,
+                        ClaimsIdentity = innerTokenValidationResult.ClaimsIdentity,
+                        IsValid = true
+                    };
+                }
+                else
+                {
+                    var jsonWebToken = ValidateSignature(token, validationParameters);
+                    return ValidateTokenPayload(jsonWebToken, validationParameters);
+                }
+            }
+            catch (Exception ex)
+            {
+                return new TokenValidationResult
+                {
+                    Exception = ex,
+                    IsValid = false
+                };
+            }
+        }
+
+        /// <summary>
+        /// Validates a JWS or a JWE.
+        /// </summary>
+        /// <param name="token">A 'JSON Web Token' (JWT) in JWS or JWE Compact Serialization Format.</param>
+        /// <param name="validationParameters">A <see cref="TokenValidationParameters"/>  required for validation.</param>
+        /// <returns>A <see cref="TokenValidationResult"/></returns>
         public virtual TokenValidationResult ValidateToken(string token, TokenValidationParameters validationParameters)
         {
             if (string.IsNullOrEmpty(token))
@@ -825,15 +885,11 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (token.Length > MaximumTokenSizeInBytes)
                 return new TokenValidationResult { Exception = LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(TokenLogMessages.IDX10209, token.Length, MaximumTokenSizeInBytes))) };
 
-            var tokenParts = token.Split(new char[] { '.' }, JwtConstants.MaxJwtSegmentCount + 1);
-            if (tokenParts.Length != JwtConstants.JwsSegmentCount && tokenParts.Length != JwtConstants.JweSegmentCount)
-                return new TokenValidationResult { Exception = LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14111, token))) };
-
             try
             {
-                if (tokenParts.Length == JwtConstants.JweSegmentCount)
+                var jwtToken = new JsonWebToken(token);
+                if (jwtToken.TokenParts.Length == JwtConstants.JweSegmentCount)
                 {
-                    var jwtToken = new JsonWebToken(token);
                     var decryptedJwt = DecryptToken(jwtToken, validationParameters);
                     var innerToken = ValidateSignature(decryptedJwt, validationParameters);
                     jwtToken.InnerToken = innerToken;

@@ -29,10 +29,21 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Security.Claims;
+using System.Threading.Tasks;
 using Microsoft.IdentityModel.Logging;
 
 namespace Microsoft.IdentityModel.Tokens
 {
+
+    /// <summary>
+    /// Definition for async AudienceValidator.
+    /// </summary>
+    /// <param name="audiences">The audiences found in the <see cref="SecurityToken"/>.</param>
+    /// <param name="securityToken">The <see cref="SecurityToken"/> being validated.</param>
+    /// <param name="validationParameters"><see cref="TokenValidationParameters"/> required for validation.</param>
+    /// <returns>true if the audience is considered valid.</returns>
+    public delegate Task<bool> AudienceValidatorAsync(IEnumerable<string> audiences, SecurityToken securityToken, TokenValidationParameters validationParameters);
+
     /// <summary>
     /// Definition for AudienceValidator.
     /// </summary>
