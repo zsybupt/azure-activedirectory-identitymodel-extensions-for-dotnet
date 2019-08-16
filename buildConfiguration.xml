@@ -10,6 +10,7 @@
       <project name="Microsoft.IdentityModel.Tokens" />
       <project name="Microsoft.IdentityModel.Xml" />
       <project name="Microsoft.IdentityModel.JsonWebTokens" />
+      <project name="Microsoft.IdentityModel.Cbor" />
       <project name="System.IdentityModel.Tokens.Jwt" />
       <project name="Microsoft.IdentityModel.Tokens.Saml" />
       <project name="Microsoft.IdentityModel.Protocols" />

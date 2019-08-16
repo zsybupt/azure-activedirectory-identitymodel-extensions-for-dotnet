@@ -25,7 +25,6 @@
 //
 //------------------------------------------------------------------------------
 
-using Microsoft.IdentityModel.Logging;
 using System;
 using System.ComponentModel;
 using static Microsoft.IdentityModel.Logging.LogHelper;
