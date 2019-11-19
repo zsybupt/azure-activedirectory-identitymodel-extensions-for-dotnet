@@ -1,5 +1,6 @@
 Windows Azure Active Directory IdentityModel Extensions for .Net
 ===========
+![Nuget](https://img.shields.io/nuget/dt/System.IdentityModel.Tokens.Jwt?label=Total%20downloads) ![Nuget](https://img.shields.io/nuget/v/Microsoft.IdentityModel.Tokens?label=Latest%20release) [![Build Status](https://identitydivision.visualstudio.com/IDDP/_apis/build/status/CI/DotNet/Middleware%20Builds/Wilson-Nightly-Debug?branchName=dev)](https://identitydivision.visualstudio.com/IDDP/_build/latest?definitionId=392&branchName=dev) ![MyGet (with prereleases)](https://img.shields.io/myget/azureadwebstacknightly/vpre/Microsoft.IdentityModel.Tokens?label=Latest%20nightly%20build) [![License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](https://raw.githubusercontent.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet/dev/LICENSE.txt)
 
 IdentityModel Extensions for .Net provide assemblies that are interesting for web developers that wish to use federated identity providers for establishing the callers identity. 
 
