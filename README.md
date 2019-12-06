@@ -1,25 +1,16 @@
-Windows Azure Active Directory IdentityModel Extensions for .Net
+Microsoft IdentityModel for .NET
 ===========
 [![Nuget](https://img.shields.io/nuget/dt/System.IdentityModel.Tokens.Jwt?label=Total%20downloads)](https://www.nuget.org/packages/System.IdentityModel.Tokens.Jwt) [![Nuget](https://img.shields.io/nuget/v/Microsoft.IdentityModel.JsonWebTokens?label=Latest%20release)](https://www.nuget.org/packages/Microsoft.IdentityModel.JsonWebTokens/) [![Build Status](https://identitydivision.visualstudio.com/IDDP/_apis/build/status/CI/DotNet/Middleware%20Builds/Wilson-Nightly-Debug?branchName=dev)](https://identitydivision.visualstudio.com/IDDP/_build/latest?definitionId=392&branchName=dev5x) [![MyGet (with prereleases)](https://img.shields.io/myget/azureadwebstacknightly/vpre/Microsoft.IdentityModel.JsonWebTokens?label=Latest%20nightly%20build)](https://www.myget.org/feed/azureadwebstacknightly/package/nuget/Microsoft.IdentityModel.JsonWebTokens) [![License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](https://raw.githubusercontent.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet/dev/LICENSE.txt)
 
-IdentityModel Extensions for .Net provide assemblies that are interesting for web developers that wish to use federated identity providers for establishing the callers identity. 
-
-## Versions
-Current version - 5.5.0
-Minimum recommended version - 5.2.2
-
-You can find the release notes for each version [here](https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet/releases). Older versions can be found [here](https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet/wiki/Release-Notes).
-
-## Security Vulnerability in Microsoft.IdentityModel.Tokens 5.1.0
-IdentityModel Extensions library Microsoft.IdentityModel.Tokens has a known security vulnerability affecting version 5.1.0. Please update to >= 5.1.1 immediately. An updated package is available on NuGet. For more details, see the [security notice](https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet/blob/master/SECURITY_NOTICE.md).
+Microsoft IdentityModel for .NET SDK provide assemblies that are interesting for web developers that wish to use federated identity providers for establishing the callers identity. 
 
 ## Usage
-IdentityModel Extensions for .NET 5 has now been released. If you are using IdentityModel Extensions with ASP.NET, the following combinations are supported:
-* **IdentityModel Extensions for .NET 5.x**, **ASP.NET Core 1.x**, **ASP.NET Core 2.x**, **Katana 4.x**
-* **IdentityModel Extensions for .NET 4.x**, **ASP.NET 4**, **Katana 3.x**
+If you are using Microsoft IdentityModel with ASP.NET, the following combinations are supported:
+* **Microsoft IdentityModel for .NET 5.x**, **ASP.NET Core**, **Katana 4.x**
+* **Microsoft IdentityModel for .NET 4.x**, **ASP.NET 4**, **Katana 3.x**
 All other combinations aren't supported.
 
-For more details see [Migration notes here](https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet/wiki/Migrating-from-Katana-(OWIN)-3.x-to-4.x)
+For more details see [migration notes](https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet/wiki/Migrating-from-Katana-(OWIN)-3.x-to-4.x).
 
 ## Samples and Documentation
 
@@ -37,7 +28,7 @@ The scenarios supported by IdentityModel extensions for .NET are described in [S
 
 We leverage [Stack Overflow](http://stackoverflow.com/) to work with the community on supporting Azure Active Directory and its SDKs, including this one! We highly recommend you ask your questions on Stack Overflow (we're all on there!) Also browse existing issues to see if someone has had your question before. 
 
-We recommend you use the "adal" tag so we can see it! Here is the latest Q&A on Stack Overflow for ADAL: [http://stackoverflow.com/questions/tagged/adal](http://stackoverflow.com/questions/tagged/adal)
+We recommend you use the "microsoft-identitymodel" tag so we can see it! Here is the latest Q&A on Stack Overflow for ADAL: [http://stackoverflow.com/questions/tagged/microsoft-identitymodel](http://stackoverflow.com/questions/tagged/microsoft-identitymodel)
 
 ## Security Reporting
 
