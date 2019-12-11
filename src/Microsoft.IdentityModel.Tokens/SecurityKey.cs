@@ -83,6 +83,16 @@ namespace Microsoft.IdentityModel.Tokens
         }
 
         /// <summary>
+        /// Computes a sha256 hash over the <see cref="SecurityKey"/>.
+        /// </summary>
+        /// <returns>A JWK thumbprint.</returns>
+        /// <remarks>https://tools.ietf.org/html/rfc7638</remarks>
+        public virtual byte[] ComputeJwkThumbprint()
+        {
+            throw LogHelper.LogExceptionMessage(new NotSupportedException(LogHelper.FormatInvariant(LogMessages.IDX10710)));
+        }
+
+        /// <summary>
         /// Returns the formatted string: GetType(), KeyId: 'value', InternalId: 'value'.
         /// </summary>
         /// <returns>string</returns>
