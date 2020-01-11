@@ -27,6 +27,8 @@
 
 	<Target Name="EchoApiCompat" Condition="'$(RunApiCompat)' == 'true'" BeforeTargets="CheckIfContractAssemblyExists">
 		<Message Importance="High" Text=">>> Running ApiCompat for the assembly: $(TargetFramework)\$(TargetName).dll"/>
+		<Message Importance="High" Text=">>> Baseline: $(ApiCompatBaseline)"/>
+		
 	</Target>
 
 	<!--
