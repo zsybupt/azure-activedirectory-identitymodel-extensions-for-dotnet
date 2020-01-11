@@ -5,7 +5,7 @@
 		<RunApiCompatForSrc>true</RunApiCompatForSrc>
 		<RunMatchingRefApiCompat>false</RunMatchingRefApiCompat>
 		<ApiCompatEnforceOptionalRules>true</ApiCompatEnforceOptionalRules>
-		<ApiCompatBaseline>$(SolutionDir)Tools\apiCompat\baseline\ApiCompatBaseline.$(TargetName).$(TargetFramework).txt</ApiCompatBaseline>
+		<ApiCompatBaseline>$(SolutionDir)Tools\apiCompat\baseline\ApiCompatBaseline.$(MSBuildProjectName).$(TargetFramework).txt</ApiCompatBaseline>
 		<ApiCompatExcludeAttributeList>$(SolutionDir)Tools\apiCompat\ApiCompatExcludeAttributeList.txt</ApiCompatExcludeAttributeList>
 		<AllowMissingContractAssemblies>true</AllowMissingContractAssemblies>
 		<BaselineAllAPICompatError>true</BaselineAllAPICompatError>
