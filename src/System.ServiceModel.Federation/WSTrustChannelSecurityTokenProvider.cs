@@ -17,8 +17,8 @@ using Microsoft.IdentityModel.Protocols.WsPolicy;
 using Microsoft.IdentityModel.Protocols.WsSecurity;
 using Microsoft.IdentityModel.Protocols.WsTrust;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.IdentityModel.Tokens.Saml2;
 using System.ComponentModel;
+using Microsoft.IdentityModel.Protocols;
 
 namespace System.ServiceModel.Federation
 {
@@ -276,12 +276,12 @@ namespace System.ServiceModel.Federation
         {
             var request = CreateWsTrustRequest();
             WsTrustResponse trustResponse = GetCachedResponse(request);
+            var serializer = new WsTrustSerializer();
             if (trustResponse is null)
             {
                 using (var memeoryStream = new MemoryStream())
                 {
                     var writer = XmlDictionaryWriter.CreateTextWriter(memeoryStream, Encoding.UTF8);
-                    var serializer = new WsTrustSerializer();
                     serializer.WriteRequest(writer, WsTrustVersion.Trust13, request);
                     writer.Flush();
                     var reader = XmlDictionaryReader.CreateTextReader(memeoryStream.ToArray(), XmlDictionaryReaderQuotas.Max);
@@ -298,20 +298,23 @@ namespace System.ServiceModel.Federation
             // Assumes that token is first and Saml2SecurityToken.
             using (var stream = new MemoryStream())
             {
-                var response = trustResponse.RequestSecurityTokenResponseCollection[0];
+                RequestSecurityTokenResponse response = trustResponse.RequestSecurityTokenResponseCollection[0];
 
                 // Get security token
-                var writer = XmlDictionaryWriter.CreateTextWriter(stream, Encoding.UTF8, false);
-                var tokenHandler = new Saml2SecurityTokenHandler();
-                tokenHandler.TryWriteSourceData(writer, response.RequestedSecurityToken.SecurityToken);
+                 var writer = XmlDictionaryWriter.CreateTextWriter(stream, Encoding.UTF8, false);
+                // TODO: It might be more efficient to just pass the token's xml along without re-serializing but, currently,
+                //       response.RequestedSecurityToken doesn't have the token's xml.
+                // TODO: Update to use this.WsTrustVersion once the message security version PR is merged.
+                serializer.WriteRequestedSecurityToken(writer, new WsSerializationContext(WsTrustVersion.Trust13), response.RequestedSecurityToken);
                 writer.Flush();
                 stream.Seek(0, SeekOrigin.Begin);
                 var dom = new XmlDocument
                 {
                     PreserveWhitespace = true
                 };
-
                 dom.Load(new XmlTextReader(stream) { DtdProcessing = DtdProcessing.Prohibit });
+                var tokenXml = dom.DocumentElement.FirstChild as XmlElement;
+
 
                 // Get attached and unattached references
                 GenericXmlSecurityKeyIdentifierClause internalSecurityKeyIdentifierClause = null;
@@ -329,7 +332,7 @@ namespace System.ServiceModel.Federation
                 var created = response.Lifetime?.Created ?? DateTime.UtcNow;
                 var expires = response.Lifetime?.Expires ?? created.AddDays(1);
 
-                return new GenericXmlSecurityToken(dom.DocumentElement,
+                return new GenericXmlSecurityToken(tokenXml,
                                                    proofToken,
                                                    created,
                                                    expires,

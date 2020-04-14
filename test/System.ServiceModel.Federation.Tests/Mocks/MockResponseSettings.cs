@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using Microsoft.IdentityModel.Protocols.WsTrust;
+using Microsoft.IdentityModel.Tokens;
 
 namespace System.ServiceModel.Federation.Tests.Mocks
 {
@@ -20,5 +21,7 @@ namespace System.ServiceModel.Federation.Tests.Mocks
         public Lifetime Lifetime { get; set; }
 
         public RequestedProofToken ProofToken { get; set; }
+
+        public SecurityToken SecurityToken { get; set; }
     }
 }

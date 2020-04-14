@@ -4,12 +4,17 @@
 
 using System.IdentityModel.Selectors;
 using System.IdentityModel.Tokens;
+using System.IO;
+using System.Reflection;
 using System.ServiceModel.Federation.Tests.Mocks;
 using System.ServiceModel.Security;
 using System.Threading;
+using System.Xml;
 using Microsoft.IdentityModel.Protocols.WsTrust;
 using Microsoft.IdentityModel.TestUtils;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.IdentityModel.Tokens.Saml;
+using Microsoft.IdentityModel.Tokens.Saml2;
 using Xunit;
 using SecurityToken = System.IdentityModel.Tokens.SecurityToken;
 using SymmetricSecurityKey = System.IdentityModel.Tokens.SymmetricSecurityKey;
@@ -565,6 +570,73 @@ namespace System.ServiceModel.Federation.Tests
                     TestId = "Test5"
                 }
             };
+        }
+
+        [Theory, MemberData(nameof(GetTokenTheoryData))]
+        public void GetTokenReturnsSecurityTokensCorrectly(GetTokenTheoryData theoryData)
+        {
+            CompareContext context = TestUtilities.WriteHeader($"{this}.GetToken", theoryData);
+
+            try
+            {
+                SecurityTokenRequirement tokenRequirement = WSTrustTestHelpers.CreateSecurityRequirement(new BasicHttpBinding());
+                WSTrustChannelSecurityTokenProviderWithMockChannelFactory provider = new WSTrustChannelSecurityTokenProviderWithMockChannelFactory(tokenRequirement);
+                provider.SetResponseSettings(new MockResponseSettings
+                {
+                    SecurityToken = theoryData.SecurityToken
+                });
+
+                GenericXmlSecurityToken token = provider.GetToken(TimeSpan.FromMinutes(1)) as GenericXmlSecurityToken;
+
+                XmlElement tokenXml = typeof(GenericXmlSecurityToken).GetProperty("TokenXml", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+                    .GetValue(token) as XmlElement;
+
+
+                theoryData.ExpectedException.ProcessNoException(context);
+                IdentityComparer.AreStringsEqual(token.Id, theoryData.SecurityToken.Id, context);
+                IdentityComparer.AreXmlElementsEqual(tokenXml, theoryData.ExpectedXml, context);
+            }
+            catch (Exception ex)
+            {
+                theoryData.ExpectedException.ProcessException(ex, context);
+            }
+
+            TestUtilities.AssertFailIfErrors(context);
+        }
+
+        public static TheoryData<GetTokenTheoryData> GetTokenTheoryData
+        {
+            get
+            {
+                var ret = new TheoryData<GetTokenTheoryData>();
+
+                var saml2Serializer = new Saml2Serializer();
+                using (var xmlReader = XmlReader.Create(new StringReader(ReferenceXml.Saml2TokenValidSigned)))
+                {
+                    Saml2SecurityToken saml2Token = new Saml2SecurityToken(saml2Serializer.ReadAssertion(xmlReader));
+                    var samle2XmlDoc = new XmlDocument();
+                    samle2XmlDoc.LoadXml(ReferenceXml.Saml2TokenValidSigned);
+                    ret.Add(new GetTokenTheoryData
+                    {
+                        SecurityToken = saml2Token,
+                        ExpectedXml = samle2XmlDoc.DocumentElement,
+                        TestId = "SAML2"
+                    });
+                }
+
+                // TODO: This fails, currently, because we can't serialize SAML tokens (src\Microsoft.IdentityModel.Tokens\SecurityTokenHandler.cs)
+                var samlXmlDoc = new XmlDocument();
+                samlXmlDoc.LoadXml(ReferenceSaml.SamlAssertionWithSignature.Xml);
+
+                ret.Add(new GetTokenTheoryData
+                {
+                    SecurityToken = new SamlSecurityToken(ReferenceSaml.SamlAssertionWithSignature.Assertion),
+                    ExpectedXml = samlXmlDoc.DocumentElement,
+                    TestId = "SAML1"
+                });
+
+                return ret;
+            }
         }
     }
 }

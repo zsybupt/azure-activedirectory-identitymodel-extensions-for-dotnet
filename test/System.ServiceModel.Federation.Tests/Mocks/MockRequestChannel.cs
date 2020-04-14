@@ -28,7 +28,7 @@ namespace System.ServiceModel.Federation.Tests.Mocks
             DateTime issuedAt = DateTime.UtcNow;
             var response = new WsTrustResponse(new RequestSecurityTokenResponse
             {
-                RequestedSecurityToken = new RequestedSecurityToken(GetSaml2Token(issuedAt)),
+                RequestedSecurityToken = new RequestedSecurityToken(ResponseSettings?.SecurityToken ?? GetSaml2Token(issuedAt)),
                 AttachedReference = new SecurityTokenReference
                 {
                     KeyIdentifier = new KeyIdentifier
