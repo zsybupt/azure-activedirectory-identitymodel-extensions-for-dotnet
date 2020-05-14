@@ -48,6 +48,18 @@
     {
       "file": "TestData.cs",
       "_justification": "File contains tokens that are used only for testing purposes."
+    },
+    {
+      "file": "Client.pfx",
+      "_justification": "pfx is selfissued and for customer sample code."
+    },
+    {
+      "file": "Service.pfx",
+      "_justification": "pfx is selfissued and for customer sample code."
+    },
+    {
+      "file": "Injected.pfx",
+      "_justification": "pfx is selfissued and for customer sample code."
     }
   ]
 }
