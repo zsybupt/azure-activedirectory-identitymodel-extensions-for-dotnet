@@ -114,6 +114,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             var header = new JObject();
             header.Add(JwtHeaderParameterNames.Alg, encryptingCredentials.Alg);
             header.Add(JwtHeaderParameterNames.Enc, encryptingCredentials.Enc);
+            header.Add(JwtHeaderParameterNames.Cty, JwtConstants.ContentType);
 
             if (!string.IsNullOrEmpty(encryptingCredentials.Key.KeyId))
                 header.Add(JwtHeaderParameterNames.Kid, encryptingCredentials.Key.KeyId);

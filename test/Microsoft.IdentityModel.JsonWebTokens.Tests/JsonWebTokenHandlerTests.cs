@@ -65,6 +65,23 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
             TestUtilities.AssertFailIfErrors(context);
         }
 
+        // This test checks to make sure there is 'cty' claim in the JWE outer token header.
+        [Fact]
+        public void CtyClaimInJWEHeader()
+        {
+            TestUtilities.WriteHeader($"{this}.CtyClaimInJWEHeader");
+            var context = new CompareContext();
+
+            var handler = new JsonWebTokenHandler();
+            var tokenString = handler.CreateToken(Default.PayloadString, KeyingMaterial.DefaultSymmetricEncryptingCreds_Aes256_Sha512_512);
+            var jwt = new JsonWebToken(tokenString);
+
+            if (!jwt.TryGetHeaderValue(JwtHeaderParameterNames.Cty, out string _))
+                context.AddDiff("JWE does not have 'cty' claim in the header");
+
+            TestUtilities.AssertFailIfErrors(context);
+        }
+
         [Fact]
         public void ValidateTokenValidationResult()
         {

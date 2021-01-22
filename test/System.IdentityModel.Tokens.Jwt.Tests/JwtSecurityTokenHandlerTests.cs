@@ -42,6 +42,29 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
 {
     public class JwtSecurityTokenHandlerTests
     {
+        // This test checks to make sure there is 'cty' claim in the JWE outer token header.
+        [Fact]
+        public void CtyClaimInJWEHeader()
+        {
+            TestUtilities.WriteHeader($"{this}.CtyClaimInJWEHeader");
+            var context = new CompareContext();
+
+            var handler = new JwtSecurityTokenHandler();
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                SigningCredentials = KeyingMaterial.JsonWebKeyRsa256SigningCredentials,
+                EncryptingCredentials = KeyingMaterial.DefaultSymmetricEncryptingCreds_Aes128_Sha2,
+                Claims = Default.PayloadDictionary
+            };
+            var tokenString = handler.CreateEncodedJwt(tokenDescriptor);
+            var jwt = handler.ReadJwtToken(tokenString);
+
+            if (!jwt.Header.ContainsKey(JwtHeaderParameterNames.Cty))
+                context.AddDiff("JWE does not have 'cty' claim in the header");
+
+            TestUtilities.AssertFailIfErrors(context);
+        }
+
         // Tests checks to make sure that the token string created by the JwtSecurityTokenHandler is consistent with the 
         // token string created by the JsonWebTokenHandler.
         [Theory, MemberData(nameof(CreateJWEUsingSecurityTokenDescriptorTheoryData))]

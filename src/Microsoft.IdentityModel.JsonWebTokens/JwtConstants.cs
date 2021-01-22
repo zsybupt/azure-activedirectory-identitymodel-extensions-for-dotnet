@@ -33,6 +33,11 @@ namespace Microsoft.IdentityModel.JsonWebTokens
     public static class JwtConstants
     {
         /// <summary>
+        /// Token content type.
+        /// </summary>
+        public const string ContentType = "JWT";
+
+        /// <summary>
         /// Short header type.
         /// </summary>
         public const string HeaderType = "JWT";
