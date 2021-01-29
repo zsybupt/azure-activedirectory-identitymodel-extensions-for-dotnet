@@ -65,23 +65,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
             TestUtilities.AssertFailIfErrors(context);
         }
 
-        // This test checks to make sure there is 'cty' claim in the JWE outer token header.
-        [Fact]
-        public void CtyClaimInJWEHeader()
-        {
-            TestUtilities.WriteHeader($"{this}.CtyClaimInJWEHeader");
-            var context = new CompareContext();
-
-            var handler = new JsonWebTokenHandler();
-            var tokenString = handler.CreateToken(Default.PayloadString, KeyingMaterial.DefaultSymmetricEncryptingCreds_Aes256_Sha512_512);
-            var jwt = new JsonWebToken(tokenString);
-
-            if (!jwt.TryGetHeaderValue(JwtHeaderParameterNames.Cty, out string _))
-                context.AddDiff("JWE does not have 'cty' claim in the header");
-
-            TestUtilities.AssertFailIfErrors(context);
-        }
-
         [Fact]
         public void ValidateTokenValidationResult()
         {
@@ -310,7 +293,8 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                             SigningCredentials = KeyingMaterial.JsonWebKeyRsa256SigningCredentials,
                             EncryptingCredentials = KeyingMaterial.DefaultSymmetricEncryptingCreds_Aes256_Sha512_512,
                             Subject = new ClaimsIdentity(Default.PayloadClaims),
-                            TokenType = "TokenType"
+                            TokenType = "TokenType",
+                            AdditionalHeaderClaims = new Dictionary<string, object> {{JwtHeaderParameterNames.Cty, JwtConstants.HeaderType } }
                         },
                         JsonWebTokenHandler = new JsonWebTokenHandler(),
                         JwtSecurityTokenHandler = tokenHandler,
@@ -330,6 +314,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                             SigningCredentials = KeyingMaterial.JsonWebKeyRsa256SigningCredentials,
                             EncryptingCredentials = KeyingMaterial.DefaultSymmetricEncryptingCreds_Aes256_Sha512_512,
                             Subject = new ClaimsIdentity(Default.PayloadClaims),
+                            AdditionalHeaderClaims = new Dictionary<string, object> {{JwtHeaderParameterNames.Cty, JwtConstants.HeaderType}}
                         },
                         JsonWebTokenHandler = new JsonWebTokenHandler(),
                         JwtSecurityTokenHandler = tokenHandler,
@@ -349,6 +334,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                             SigningCredentials = KeyingMaterial.JsonWebKeyRsa256SigningCredentials,
                             EncryptingCredentials = KeyingMaterial.DefaultSymmetricEncryptingCreds_Aes256_Sha512_512,
                             Subject = new ClaimsIdentity(Default.PayloadClaims),
+                            AdditionalHeaderClaims = new Dictionary<string, object> {{JwtHeaderParameterNames.Cty, JwtConstants.HeaderType } }
                         },
                         JsonWebTokenHandler = new JsonWebTokenHandler(),
                         JwtSecurityTokenHandler = tokenHandler,
@@ -1055,6 +1041,25 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                             ValidIssuer = Default.Issuer
                         },
                         JwtToken = ReferenceTokens.JWEDirectEcryptionWithAdditionalHeaderClaims
+                    },
+                     new CreateTokenTheoryData
+                    {
+                        TestId = "JWEDirectEncryptionWithCty",
+                        TokenDescriptor =  new SecurityTokenDescriptor
+                        {
+                            Claims = Default.PayloadDictionary,
+                            SigningCredentials = Default.SymmetricSigningCredentials,
+                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
+                            AdditionalHeaderClaims = new Dictionary<string, object>() { { JwtHeaderParameterNames.Cty, JwtConstants.HeaderType} }
+                        },
+                        ValidationParameters = new TokenValidationParameters
+                        {
+                            IssuerSigningKey = Default.SymmetricSigningCredentials.Key,
+                            TokenDecryptionKey = Default.SymmetricEncryptingCredentials.Key,
+                            ValidAudience = Default.Audience,
+                            ValidIssuer = Default.Issuer
+                        },
+                        JwtToken = ReferenceTokens.JWEDirectEcryptionWithCtyInAdditionalHeaderClaims
                     },
                     new CreateTokenTheoryData
                     {

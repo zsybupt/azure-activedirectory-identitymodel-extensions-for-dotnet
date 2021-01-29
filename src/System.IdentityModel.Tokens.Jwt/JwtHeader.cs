@@ -146,8 +146,6 @@ namespace System.IdentityModel.Tokens.Jwt
             if (encryptingCredentials == null)
                 throw LogHelper.LogArgumentNullException(nameof(encryptingCredentials));
 
-            Cty = JwtConstants.ContentType;
-
             string outboundAlg;
             if (outboundAlgorithmMap != null && outboundAlgorithmMap.TryGetValue(encryptingCredentials.Alg, out outboundAlg))
                 Alg = outboundAlg;
@@ -167,6 +165,7 @@ namespace System.IdentityModel.Tokens.Jwt
             else
                 Typ = tokenType;
 
+            Cty = JwtConstants.HeaderType;
             EncryptingCredentials = encryptingCredentials;
         }
 
