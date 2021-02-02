@@ -66,6 +66,15 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
         }
 
         [Fact]
+        public void CreateTokenThrowsNullArgumentException()
+        {
+            var handler = new JsonWebTokenHandler();
+            Assert.Throws<ArgumentNullException>(() => handler.CreateToken(null, Default.SymmetricEncryptingCredentials, new Dictionary<string, object> { {"key", "value" } }));
+            Assert.Throws<ArgumentNullException>(() => handler.CreateToken("Payload", (EncryptingCredentials) null, new Dictionary<string, object> { { "key", "value" } }));
+            Assert.Throws<ArgumentNullException>(() => handler.CreateToken("Payload", Default.SymmetricEncryptingCredentials, (Dictionary<string, object>) null));
+        }
+
+        [Fact]
         public void ValidateTokenValidationResult()
         {
             TestUtilities.WriteHeader($"{this}.ValidateTokenValidationResult");
