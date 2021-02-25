@@ -50,9 +50,13 @@ namespace Microsoft.IdentityModel.Tokens
     internal class EventBasedLRUCache<TKey, TValue> : ILRUCache<TKey,TValue>, IDisposable
     {
         private readonly int _capacity;
-        private readonly ConcurrentDictionary<TKey, LRUCacheItem<TKey, TValue>> _map;
+        // The percentage of the cache to be removed when _maxCapacityPercentage is reached.
+        private double _compactionPercentage = .20;
         private readonly LinkedList<LRUCacheItem<TKey, TValue>> _doubleLinkedList = new LinkedList<LRUCacheItem<TKey, TValue>>();
         private readonly BlockingCollection<Action> _eventQueue = new BlockingCollection<Action>();
+        private readonly ConcurrentDictionary<TKey, LRUCacheItem<TKey, TValue>> _map;
+        // When the current cache size gets to this percentage of _capacity, _compactionPercentage% of the cache will be removed.
+        private double _maxCapacityPercentage = .95;
         private bool _disposed = false;
 
         internal EventBasedLRUCache(int capacity, IEqualityComparer<TKey> comparer = null)
@@ -67,7 +71,7 @@ namespace Microsoft.IdentityModel.Tokens
         {
             while (true)
             {
-                if (_eventQueue.TryTake(out var action))
+                if (_disposed != true && _eventQueue.TryTake(out var action))
                     action.Invoke();
             }
         }
@@ -111,6 +115,16 @@ namespace Microsoft.IdentityModel.Tokens
             return numItemsRemoved;
         }
 
+        internal void RemoveLRUs(int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                var lru = _doubleLinkedList.Last;
+                _map.TryRemove(lru.Value.Key, out _);
+                _doubleLinkedList.Remove(lru);
+            }
+        }
+
         async Task RemoveExpiredValuesPeriodically(TimeSpan interval)
         {
             while (true)
@@ -150,14 +164,12 @@ namespace Microsoft.IdentityModel.Tokens
             }
             else
             {
-                // if cache is full, then remove the least recently used node
-                if (_map.Count >= _capacity)
+                // if cache is at _maxCapacityPercentage, trim it by _compactionPercentage
+                if ((double)_map.Count / _capacity >= _maxCapacityPercentage)
                 {
                     _eventQueue.Add(() =>
                     {
-                        var lru = _doubleLinkedList.Last;
-                        _map.TryRemove(lru.Value.Key, out _);
-                        _doubleLinkedList.Remove(lru);
+                        RemoveLRUs((int)(_map.Count * _compactionPercentage));
                     });
 
                 }
@@ -205,13 +217,6 @@ namespace Microsoft.IdentityModel.Tokens
             if (key == null)
                 throw LogHelper.LogArgumentNullException(nameof(key));
 
-            if (!_map.ContainsKey(key))
-            {
-                value = default;
-                return false;
-            }
-
-            // check to make sure node wasn't removed by a different thread
             if (!_map.TryGetValue(key, out var cacheItem))
             {
                 value = default;
@@ -223,6 +228,13 @@ namespace Microsoft.IdentityModel.Tokens
             return _map.TryRemove(key, out _);
         }
 
+
+        /// <summary>
+        /// FOR TESTING ONLY.
+        /// </summary>
+        /// <returns></returns>
+        internal LinkedList<LRUCacheItem<TKey, TValue>> LinkedList => _doubleLinkedList;
+
         /// <summary>
         /// FOR TESTING ONLY.
         /// </summary>
@@ -232,6 +244,12 @@ namespace Microsoft.IdentityModel.Tokens
         /// FOR TESTING ONLY.
         /// </summary>
         public long MapCount => _map.Count;
+
+        /// <summary>
+        /// FOR TESTING ONLY.
+        /// </summary>
+        /// <returns></returns>
+        internal ICollection<LRUCacheItem<TKey, TValue>> MapValues => _map.Values;
 
         /// <summary>
         /// FOR TESTING ONLY.

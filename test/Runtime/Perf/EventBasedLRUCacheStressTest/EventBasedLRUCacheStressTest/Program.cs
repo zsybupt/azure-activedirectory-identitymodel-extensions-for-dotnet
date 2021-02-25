@@ -48,7 +48,7 @@ namespace EventBasedLRUValueCacheStressTest
 
         static long CacheGetTest(bool useQueue, int processingDelay = 0)
         {
-            var cache = new EventBasedValueLRUCache<int, string>(1000);
+            var cache = new EventBasedLRUCache<int, string>(1000);
             cache.UseQueue = useQueue;
             cache.ProcessingDelay = processingDelay;
 
