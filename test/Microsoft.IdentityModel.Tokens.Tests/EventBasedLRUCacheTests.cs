@@ -226,8 +226,8 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             if (cache.LinkedList.First.Value.Key != 100)
                 context.AddDiff("100 should be the first value in the linked list, but instead it was : " + cache.LinkedList.First.Value.Key);
 
-            if (cache.LinkedList.Last.Value.Key != 93)
-                context.AddDiff("93 should be the last value in the linked list, but instead it was : " + cache.LinkedList.Last.Value.Key);
+            if (cache.LinkedList.Last.Value.Key != 92)
+                context.AddDiff("92 should be the last value in the linked list, but instead it was : " + cache.LinkedList.Last.Value.Key);
 
             cache.SetValue(101, Guid.NewGuid().ToString());
             cache.SetValue(102, Guid.NewGuid().ToString());

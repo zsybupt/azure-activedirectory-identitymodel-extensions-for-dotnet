@@ -115,8 +115,11 @@ namespace Microsoft.IdentityModel.Tokens
             return numItemsRemoved;
         }
 
-        internal void RemoveLRUs(int newCacheSize)
+        internal void RemoveLRUs()
         {
+            // use the _capacity for the newCacheSize calculation in the case where the cache is experiencing overflow
+            int currentCount = _map.Count <= _capacity ? _map.Count : _capacity;
+            var newCacheSize = currentCount - (int)(currentCount * _compactionPercentage);
             while (_map.Count > newCacheSize)
             {
                 var lru = _doubleLinkedList.Last;
@@ -167,10 +170,9 @@ namespace Microsoft.IdentityModel.Tokens
                 // if cache is at _maxCapacityPercentage, trim it by _compactionPercentage
                 if ((double)_map.Count / _capacity >= _maxCapacityPercentage)
                 {
-                    var currentCount = _map.Count;
                     _eventQueue.Add(() =>
                     {
-                        RemoveLRUs(currentCount - (int)(currentCount * _compactionPercentage));
+                        RemoveLRUs();
                     });
                 }
                 // add the new node
