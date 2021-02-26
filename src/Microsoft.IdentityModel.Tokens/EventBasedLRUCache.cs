@@ -51,7 +51,6 @@ namespace Microsoft.IdentityModel.Tokens
     {
         private readonly int _capacity;
         // The percentage of the cache to be removed when _maxCapacityPercentage is reached.
-        private bool _cleanupEventTriggered = false;
         private double _compactionPercentage = .20;
         private readonly LinkedList<LRUCacheItem<TKey, TValue>> _doubleLinkedList = new LinkedList<LRUCacheItem<TKey, TValue>>();
         private readonly BlockingCollection<Action> _eventQueue = new BlockingCollection<Action>();
@@ -64,15 +63,15 @@ namespace Microsoft.IdentityModel.Tokens
         {
             _capacity = capacity > 0 ? capacity : throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(capacity)));
             _map = new ConcurrentDictionary<TKey, LRUCacheItem<TKey, TValue>>(comparer ?? EqualityComparer<TKey>.Default);
-            new Task(() => OnStart(), TaskCreationOptions.LongRunning).Start();
+            new Task(OnStart, TaskCreationOptions.LongRunning).Start();
             _ = RemoveExpiredValuesPeriodically(TimeSpan.FromMinutes(5));
         }
 
         private void OnStart()
         {
-            while (true)
+            while (!_disposed)
             {
-                if (_disposed != true && _eventQueue.TryTake(out var action))
+                if (_eventQueue.TryTake(out var action, 500))
                     action.Invoke();
             }
         }
@@ -116,15 +115,14 @@ namespace Microsoft.IdentityModel.Tokens
             return numItemsRemoved;
         }
 
-        internal void RemoveLRUs(int count)
+        internal void RemoveLRUs(int newCacheSize)
         {
-            for (int i = 0; i < count; i++)
+            while (_map.Count > newCacheSize)
             {
                 var lru = _doubleLinkedList.Last;
                 _map.TryRemove(lru.Value.Key, out _);
                 _doubleLinkedList.Remove(lru);
             }
-            _cleanupEventTriggered = false;
         }
 
         async Task RemoveExpiredValuesPeriodically(TimeSpan interval)
@@ -167,12 +165,12 @@ namespace Microsoft.IdentityModel.Tokens
             else
             {
                 // if cache is at _maxCapacityPercentage, trim it by _compactionPercentage
-                if (!_cleanupEventTriggered && (double)_map.Count / _capacity >= _maxCapacityPercentage)
+                if ((double)_map.Count / _capacity >= _maxCapacityPercentage)
                 {
-                    _cleanupEventTriggered = true;
+                    var currentCount = _map.Count;
                     _eventQueue.Add(() =>
                     {
-                        RemoveLRUs((int)(_map.Count * _compactionPercentage));
+                        RemoveLRUs(currentCount - (int)(currentCount * _compactionPercentage));
                     });
                 }
                 // add the new node

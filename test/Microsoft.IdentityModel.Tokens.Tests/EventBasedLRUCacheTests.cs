@@ -69,7 +69,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
         {
             TestUtilities.WriteHeader($"{this}.RemoveExpiredValues");
             var context = new CompareContext($"{this}.RemoveExpiredValues");
-            var cache = new EventBasedLRUCache<int, string>(10);
+            var cache = new EventBasedLRUCache<int, string>(100);
 
             for (int i = 0; i <= 10; i++)
             {
@@ -206,37 +206,40 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             {
                 cache.SetValue(i, Guid.NewGuid().ToString());
 
-                // print the value of the list every 100 items
+                // check that list and map values match up every 10 items
+                // every 10th item should result in two LRU items being removed
                 if (i % 10 == 0 && i != 0)
                 {
                     // wait for the cache events to process
-                    //Thread.Sleep(1000);
                     cache.WaitForProcessing();
 
-                    if (cache.LinkedList.Intersect(cache.MapValues).Count() != 10)
+                    // check that all values match up
+                    if (cache.LinkedList.Except(cache.MapValues).Count() != 0)
                         context.AddDiff("Values in the map and corresponding linked list do not match up.");
                 }
 
             }
 
+            cache.WaitForProcessing();
+
             // Values 91-100 should now be in the cache, with 100 being first in the list and 91 being last.
             if (cache.LinkedList.First.Value.Key != 100)
                 context.AddDiff("100 should be the first value in the linked list, but instead it was : " + cache.LinkedList.First.Value.Key);
 
-            if (cache.LinkedList.Last.Value.Key != 91)
-                context.AddDiff("91 should be the last value in the linked list, but instead it was : " + cache.LinkedList.Last.Value.Key);
+            if (cache.LinkedList.Last.Value.Key != 93)
+                context.AddDiff("93 should be the last value in the linked list, but instead it was : " + cache.LinkedList.Last.Value.Key);
 
             cache.SetValue(101, Guid.NewGuid().ToString());
+            cache.SetValue(102, Guid.NewGuid().ToString());
 
             // wait for the cache events to process
-            //Thread.Sleep(1000);
             cache.WaitForProcessing();
 
-            if (cache.LinkedList.First.Value.Key != 101)
-                context.AddDiff("101 should be the first value in the linked list, but instead it was : " + cache.LinkedList.First.Value.Key);
+            if (cache.LinkedList.First.Value.Key != 102)
+                context.AddDiff("102 should be the first value in the linked list, but instead it was : " + cache.LinkedList.First.Value.Key);
 
-            if (cache.LinkedList.Last.Value.Key != 92)
-                context.AddDiff("92 should be the first value in the linked list, but instead it was : " + cache.LinkedList.Last.Value.Key);
+            if (cache.LinkedList.Last.Value.Key != 95)
+                context.AddDiff("95 should be the first value in the linked list, but instead it was : " + cache.LinkedList.Last.Value.Key);
 
             TestUtilities.AssertFailIfErrors(context);
         }
