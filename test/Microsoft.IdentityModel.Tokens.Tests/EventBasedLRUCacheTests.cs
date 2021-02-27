@@ -26,8 +26,12 @@
 //------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Drawing.Printing;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.IdentityModel.TestUtils;
 using Xunit;
 
@@ -222,29 +226,91 @@ namespace Microsoft.IdentityModel.Tokens.Tests
 
             cache.WaitForProcessing();
 
-            // Values 91-100 should now be in the cache, with 100 being first in the list and 91 being last.
-            if (cache.LinkedList.First.Value.Key != 100)
-                context.AddDiff("100 should be the first value in the linked list, but instead it was : " + cache.LinkedList.First.Value.Key);
+            // Cache size should be less than the capacity (somewhere between 8-10 items).
+            if (cache.LinkedList.Count() > 10)
+                context.AddDiff("Cache size is greater than the max!");
 
-            if (cache.LinkedList.Last.Value.Key != 92)
-                context.AddDiff("92 should be the last value in the linked list, but instead it was : " + cache.LinkedList.Last.Value.Key);
-
-            cache.SetValue(101, Guid.NewGuid().ToString());
-            cache.SetValue(102, Guid.NewGuid().ToString());
-
-            // wait for the cache events to process
-            cache.WaitForProcessing();
-
-            if (cache.LinkedList.First.Value.Key != 102)
-                context.AddDiff("102 should be the first value in the linked list, but instead it was : " + cache.LinkedList.First.Value.Key);
-
-            if (cache.LinkedList.Last.Value.Key != 95)
-                context.AddDiff("95 should be the first value in the linked list, but instead it was : " + cache.LinkedList.Last.Value.Key);
+            // The linked list should be ordered in descending order as the largest items were added last,
+            // and therefore are most recently used.
+            if (!IsDescending(cache.LinkedList))
+                context.AddDiff("LRU order was not maintained.");
 
             TestUtilities.AssertFailIfErrors(context);
         }
 
+        internal bool IsDescending(LinkedList<LRUCacheItem<int, string>> data)
+        {
+            if (data.First == null)
+                return true;
 
+            if (data.First.Next == null)
+                return true;
+
+            var prev = data.First;
+            var curr = data.First.Next;
+            while(curr != null)
+            {
+                if (prev.Value.Key < curr.Value.Key)
+                {
+                    return false;
+                }
+                prev = curr;
+                curr = curr.Next;
+            }
+
+            return true;
+        }
+
+        [Fact(Skip = "Large test meant to be run manually.")]
+        public void CacheOverflowTestMultithreaded()
+        {
+            TestUtilities.WriteHeader($"{this}.CacheOverflowTestMultithreaded");
+            var context = new CompareContext($"{this}.CacheOverflowTestMultithreaded");
+            var cache = new EventBasedLRUCache<int, string>(1000);
+
+            List<Task> taskList = new List<Task>();
+
+            for (int i = 0; i < 100000; i++)
+            {
+                taskList.Add(Task.Factory.StartNew(() =>
+                {
+                    cache.SetValue(i, i.ToString());
+                }));
+            }
+
+            Task.WaitAll(taskList.ToArray());
+            cache.WaitForProcessing();
+
+            // Cache size should be less than the capacity (somewhere between 800 - 1000 items).
+            if (cache.LinkedList.Count() > 1000)
+                context.AddDiff("Cache size is greater than the max!");
+
+            TestUtilities.AssertFailIfErrors(context);
+        }
+
+        [Fact(Skip = "Large test meant to be run manually.")]
+        public void CacheOverflowTestSequential()
+        {
+            TestUtilities.WriteHeader($"{this}.CacheOverflowTestSequential");
+            var context = new CompareContext($"{this}.CacheOverflowTestSequential");
+            var cache = new EventBasedLRUCache<int, string>(1000);
+
+            for (int i = 0; i < 100000; i++)
+            {
+                cache.SetValue(i, i.ToString());
+            }
+
+            // Cache size should be less than the capacity (somewhere between 800-1000 items).
+            if (cache.LinkedList.Count() > 1000)
+                context.AddDiff("Cache size is greater than the max!");
+
+            // The linked list should be ordered in descending order as the largest items were added last,
+            // and therefore are most recently used.
+            if (!IsDescending(cache.LinkedList))
+                context.AddDiff("LRU order was not maintained.");
+
+            Console.ReadLine();
+        }
 
     }
 }
