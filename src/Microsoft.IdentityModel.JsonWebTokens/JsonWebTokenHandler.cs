@@ -509,9 +509,9 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             var rawHeader = Base64UrlEncoder.Encode(Encoding.UTF8.GetBytes(header.ToString(Formatting.None)));
             try
             {
-                var jsonPayload = JObject.Parse(payload);
                 if (SetDefaultTimesOnTokenCreation)
                 {
+                    var jsonPayload = JObject.Parse(payload);
                     var now = EpochTime.GetIntDate(DateTime.UtcNow);
                     if (!jsonPayload.TryGetValue(JwtRegisteredClaimNames.Exp, out _))
                         jsonPayload.Add(JwtRegisteredClaimNames.Exp, now + TokenLifetimeInMinutes * 60);
@@ -522,14 +522,18 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                     if (!jsonPayload.TryGetValue(JwtRegisteredClaimNames.Nbf, out _))
                         jsonPayload.Add(JwtRegisteredClaimNames.Nbf, now);
                 }
-                payload = jsonPayload.ToString(Formatting.None);
 
                 if (encryptingCredentials != null)
                 {
                     if (additionalHeaderClaims == null)
                         additionalHeaderClaims = new Dictionary<string, object> { { JwtHeaderParameterNames.Cty, JwtConstants.HeaderType } };
                     else if (!additionalHeaderClaims.TryGetValue(JwtHeaderParameterNames.Cty, out _))
-                        additionalHeaderClaims.Add(JwtHeaderParameterNames.Cty, JwtConstants.HeaderType);
+                    {
+                        if (!string.IsNullOrEmpty(tokenType))
+                            additionalHeaderClaims.Add(JwtHeaderParameterNames.Cty, tokenType);
+                        else
+                            additionalHeaderClaims.Add(JwtHeaderParameterNames.Cty, JwtConstants.HeaderType);
+                    }
                 }
             }
             catch(Exception ex)
