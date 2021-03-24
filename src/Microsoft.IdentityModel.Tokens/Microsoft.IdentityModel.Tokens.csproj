@@ -9,6 +9,7 @@
     <PackageId>Microsoft.IdentityModel.Tokens</PackageId>
     <PackageTags>.NET;Windows;Authentication;Identity;SecurityTokens;Cryptographic operations;Signing;Verifying Signatures;Encryption</PackageTags>
     <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   
   <PropertyGroup Condition=" '$(TargetFramework)' == 'net45' OR '$(TargetFramework)' == 'net461' Or '$(TargetFramework)' == 'net472'">
