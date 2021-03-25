@@ -27,6 +27,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using Microsoft.IdentityModel.TestUtils;
 using Microsoft.IdentityModel.Tokens.Saml.Tests;
@@ -822,7 +823,7 @@ namespace Microsoft.IdentityModel.Tokens.Saml2.Tests
                     // Removed until we have a way of matching a SecurityKey with a KeyInfo.
                     new Saml2TheoryData
                     {
-                        ExpectedException = ExpectedException.SecurityTokenSignatureKeyNotFoundException("IDX10513:"),
+                        ExpectedException = ExpectedException.SecurityTokenUnableToValidateException("IDX10515:"),
                         Handler = new Saml2SecurityTokenHandler(),
                         TestId = nameof(ReferenceTokens.Saml2Token_AttributeTampered_NoKeyMatch),
                         Token = ReferenceTokens.Saml2Token_AttributeTampered_NoKeyMatch,
@@ -1008,8 +1009,7 @@ namespace Microsoft.IdentityModel.Tokens.Saml2.Tests
                     },
                     new Saml2TheoryData
                     {
-
-                        ExpectedException = ExpectedException.SecurityTokenSignatureKeyNotFoundException("IDX10513:"),
+                        ExpectedException = ExpectedException.SecurityTokenUnableToValidateException("IDX10515:"),
                         Handler = new Saml2SecurityTokenHandler(),
                         TestId = $"{nameof(ReferenceTokens.Saml2Token_AttributeTampered_NoKeyMatch)}NotTryAllIssuerSigningKeys",
                         Token = ReferenceTokens.Saml2Token_AttributeTampered_NoKeyMatch,
@@ -1296,7 +1296,146 @@ namespace Microsoft.IdentityModel.Tokens.Saml2.Tests
                 };
             }
         }
+
+        [Theory, MemberData(nameof(CreateValidateActorClaimProcessing))]
+        public void ValidateActorClaimProcessing(Saml2TheoryData theoryData)
+        {
+            var context = TestUtilities.WriteHeader($"{this}.ValidateActorClaimProcessing", theoryData);
+            try
+            {
+                var token = theoryData.Token;
+                var actorName = "TestActor";
+                ClaimsPrincipal claimPrinciple = theoryData.Handler.ValidateToken(token, theoryData.ValidationParameters, out SecurityToken validatedToken);
+                theoryData.ExpectedException.ProcessNoException(context);
+                ClaimsIdentity validatedIdentity = claimPrinciple?.Identities.FirstOrDefault(identity => identity.Actor != null);
+                IdentityComparer.AreStringsEqual(actorName, validatedIdentity.Actor.Name, context);
+            }
+            catch (Exception ex)
+            {
+                theoryData.ExpectedException.ProcessException(ex, context);
+            }
+            TestUtilities.AssertFailIfErrors(context);
         }
+
+        public static TheoryData<Saml2TheoryData> CreateValidateActorClaimProcessing
+        {
+            get
+            {
+                return new TheoryData<Saml2TheoryData>
+                {
+                    new Saml2TheoryData
+                    {
+                        Handler = new Saml2SecurityTokenHandler(),
+                        TestId = nameof(ReferenceTokens.Saml2Token_Actor_Claim),
+                        Token = ReferenceTokens.Saml2Token_Actor_Claim,
+                        ValidationParameters = new TokenValidationParameters
+                        {
+                            IssuerSigningKey = KeyingMaterial.DefaultAADSigningKey,
+                            RequireSignedTokens = false,
+                            ValidateIssuer = false,
+                            ValidateAudience = false,
+                            ValidateLifetime = false,
+                        }
+                    },
+                };
+            }
+        }
+
+        [Theory, MemberData(nameof(SecurityKeyNotFoundExceptionTestTheoryData))]
+        public void Saml2SecurityKeyNotFoundExceptionTest(CreateTokenTheoryData theoryData)
+        {
+            var context = TestUtilities.WriteHeader($"{this}.SecurityKeyNotFoundExceptionTest", theoryData);
+
+            try
+            {
+                var handler = new Saml2SecurityTokenHandler();
+                var token = handler.CreateToken(theoryData.TokenDescriptor);
+                handler.ValidateToken(handler.WriteToken(token), theoryData.ValidationParameters, out var validationResult);
+            }
+            catch (Exception ex)
+            {
+                theoryData.ExpectedException.ProcessException(ex, context);
+            }
+
+            TestUtilities.AssertFailIfErrors(context);
+        }
+
+        public static TheoryData<CreateTokenTheoryData> SecurityKeyNotFoundExceptionTestTheoryData()
+        {
+            return new TheoryData<CreateTokenTheoryData>()
+            {
+                new CreateTokenTheoryData
+                {
+                    First = true,
+                    TestId = "TokenExpired",
+                    TokenDescriptor = new SecurityTokenDescriptor
+                    {
+                        Subject = new ClaimsIdentity(Default.SamlClaims),
+                        Expires = DateTime.UtcNow.Subtract(new TimeSpan(0, 10, 0)),
+                        IssuedAt = DateTime.UtcNow.Subtract(new TimeSpan(1, 0, 0)),
+                        NotBefore = DateTime.UtcNow.Subtract(new TimeSpan(1, 0, 0)),
+                        SigningCredentials = Default.AsymmetricSigningCredentials,
+                        Issuer = Default.Issuer,
+                     },
+                     ValidationParameters = new TokenValidationParameters
+                     {
+                        IssuerSigningKey = Default.SymmetricSigningKey,
+                        ValidIssuer = Default.Issuer,
+                     },
+                     ExpectedException = ExpectedException.SecurityTokenUnableToValidateException("IDX10515:")
+                },
+                new CreateTokenTheoryData
+                {
+                    TestId = "InvalidIssuer",
+                    TokenDescriptor = new SecurityTokenDescriptor
+                    {
+                        Subject = new ClaimsIdentity(Default.SamlClaims),
+                        SigningCredentials = Default.AsymmetricSigningCredentials,
+                        Issuer = Default.Issuer,
+                    },
+                    ValidationParameters = new TokenValidationParameters
+                    {
+                        IssuerSigningKey = Default.SymmetricSigningKey,
+                    },
+                    ExpectedException = ExpectedException.SecurityTokenUnableToValidateException("IDX10515:")
+                },
+                new CreateTokenTheoryData
+                {
+                    TestId = "ExpiredAndInvalidIssuer",
+                    TokenDescriptor = new SecurityTokenDescriptor
+                    {
+                        Subject = new ClaimsIdentity(Default.SamlClaims),
+                        Expires = DateTime.UtcNow.Subtract(new TimeSpan(0, 10, 0)),
+                        IssuedAt = DateTime.UtcNow.Subtract(new TimeSpan(1, 0, 0)),
+                        NotBefore = DateTime.UtcNow.Subtract(new TimeSpan(1, 0, 0)),
+                        SigningCredentials = Default.AsymmetricSigningCredentials,
+                        Issuer = Default.Issuer,
+                    },
+                    ValidationParameters = new TokenValidationParameters
+                    {
+                        IssuerSigningKey = Default.SymmetricSigningKey,
+                    },
+                    ExpectedException = ExpectedException.SecurityTokenUnableToValidateException("IDX10515:")
+                },
+                new CreateTokenTheoryData
+                {
+                    TestId = "KeysDontMatchValidLifetimeAndIssuer",
+                    TokenDescriptor = new SecurityTokenDescriptor
+                    {
+                        Subject = new ClaimsIdentity(Default.SamlClaims),
+                        SigningCredentials = Default.AsymmetricSigningCredentials,
+                        Issuer = Default.Issuer,
+                    },
+                    ValidationParameters = new TokenValidationParameters
+                    {
+                        IssuerSigningKey = Default.SymmetricSigningKey,
+                        ValidIssuer = Default.Issuer,
+                    },
+                    ExpectedException = ExpectedException.SecurityTokenSignatureKeyNotFoundException("IDX10513:")
+                }
+            };
+        }
+    }
 
     public class Saml2SecurityTokenHandlerPublic : Saml2SecurityTokenHandler
     {
