@@ -993,28 +993,69 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
         {
             var context = TestUtilities.WriteHeader($"{this}.CreateJWEWithAdditionalHeaderClaims", theoryData);
             var handler = new JsonWebTokenHandler();
-
-            var jwtToken = handler.CreateToken(theoryData.Payload, theoryData.TokenDescriptor.EncryptingCredentials, theoryData.TokenDescriptor.AdditionalHeaderClaims);
-            var jsonToken = new JsonWebToken(jwtToken);
-
-            if (theoryData.TokenDescriptor.AdditionalHeaderClaims.TryGetValue(JwtHeaderParameterNames.Cty, out object ctyValue))
+            string jwtTokenWithSigning = null;
+            JsonWebToken jsonTokenWithSigning = null;
+            try
             {
-                if(!jsonToken.TryGetHeaderValue(JwtHeaderParameterNames.Cty, out object headerCtyValue))
+                var jwtToken = handler.CreateToken(theoryData.Payload, theoryData.TokenDescriptor.EncryptingCredentials, theoryData.TokenDescriptor.AdditionalHeaderClaims);
+                var jsonToken = new JsonWebToken(jwtToken);
+
+                if (theoryData.TokenDescriptor.SigningCredentials != null)
                 {
-                    context.AddDiff($"'Cty' claim does not exist in the header but present in theoryData.AdditionalHeaderClaims.");
+                    jwtTokenWithSigning = handler.CreateToken(theoryData.Payload, theoryData.TokenDescriptor.SigningCredentials, theoryData.TokenDescriptor.EncryptingCredentials, CompressionAlgorithms.Deflate, theoryData.TokenDescriptor.AdditionalHeaderClaims, theoryData.TokenDescriptor.AdditionalInnerHeaderClaims);
+                    jsonTokenWithSigning = new JsonWebToken(jwtTokenWithSigning);
+                }
+
+                if (theoryData.TokenDescriptor.AdditionalHeaderClaims.TryGetValue(JwtHeaderParameterNames.Cty, out object ctyValue))
+                {
+                    if (!jsonToken.TryGetHeaderValue(JwtHeaderParameterNames.Cty, out object headerCtyValue) || (jsonTokenWithSigning != null && !jsonTokenWithSigning.TryGetHeaderValue(JwtHeaderParameterNames.Cty, out object _)))
+                    {
+                        context.AddDiff($"'Cty' claim does not exist in the outer header but present in theoryData.AdditionalHeaderClaims.");
+                    }
+                    else
+                        IdentityComparer.AreEqual(ctyValue.ToString(), headerCtyValue.ToString(), context);
                 }
                 else
-                    IdentityComparer.AreEqual(ctyValue.ToString(), headerCtyValue.ToString(), context);
-            }
-            else
-            {
-                if (!jsonToken.TryGetHeaderValue(JwtHeaderParameterNames.Cty, out object headerCtyValue))
                 {
-                    context.AddDiff($"'Cty' claim does not exist in the header. It is expected to have the default value '{JwtConstants.HeaderType}'.");
+                    if (!jsonToken.TryGetHeaderValue(JwtHeaderParameterNames.Cty, out object headerCtyValue) || (jsonTokenWithSigning != null && !jsonTokenWithSigning.TryGetHeaderValue(JwtHeaderParameterNames.Cty, out object _)))
+                    {
+                        context.AddDiff($"'Cty' claim does not exist in the outer header. It is expected to have the default value '{JwtConstants.HeaderType}'.");
+                    }
+                    else
+                        IdentityComparer.AreEqual(JwtConstants.HeaderType, headerCtyValue.ToString(), context);
                 }
-                else
-                    IdentityComparer.AreEqual(JwtConstants.HeaderType, headerCtyValue.ToString(), context);
+
+                if (theoryData.TokenDescriptor.AdditionalInnerHeaderClaims != null)
+                {
+                    theoryData.ValidationParameters.ValidateLifetime = false;
+                    var result = handler.ValidateToken(jwtTokenWithSigning, theoryData.ValidationParameters);
+                    var token = result.SecurityToken as JsonWebToken;
+                    if (theoryData.TokenDescriptor.AdditionalInnerHeaderClaims.TryGetValue(JwtHeaderParameterNames.Cty, out object innerCtyValue))
+                    {
+                        if (!token.InnerToken.TryGetHeaderValue(JwtHeaderParameterNames.Cty, out object headerCtyValue))
+                        {
+                            context.AddDiff($"'Cty' claim does not exist in the inner header but present in theoryData.AdditionalHeaderClaims.");
+                        }
+                        else
+                            IdentityComparer.AreEqual(innerCtyValue.ToString(), headerCtyValue.ToString(), context);
+                    }
+                    else
+                    {
+                        if (!token.InnerToken.TryGetHeaderValue(JwtHeaderParameterNames.Cty, out object headerCtyValue))
+                        {
+                            context.AddDiff($"'Cty' claim does not exist in the inner header. It is expected to have the default value '{JwtConstants.HeaderType}'.");
+                        }
+                        else
+                            IdentityComparer.AreEqual(JwtConstants.HeaderType, headerCtyValue.ToString(), context);
+                    }
+
+                }
             }
+            catch (Exception ex)
+            {
+                theoryData.ExpectedException.ProcessException(ex, context);
+            }
+
             TestUtilities.AssertFailIfErrors(context);
         }
 
@@ -1031,7 +1072,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                         Payload = Default.PayloadString,
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
-                            SigningCredentials = Default.SymmetricSigningCredentials,
                             EncryptingCredentials = Default.SymmetricEncryptingCredentials,
                             AdditionalHeaderClaims = new Dictionary<string, object>{ {"int", "123" } },
                         },
@@ -1042,7 +1082,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                         Payload = Default.PayloadString,
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
-                            SigningCredentials = Default.SymmetricSigningCredentials,
                             EncryptingCredentials = Default.SymmetricEncryptingCredentials,
                             AdditionalHeaderClaims = new Dictionary<string, object>{{JwtHeaderParameterNames.Cty, "str"}}
                         },
@@ -1053,12 +1092,62 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                         Payload = Guid.NewGuid().ToString(),
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
-                            SigningCredentials = Default.SymmetricSigningCredentials,
                             EncryptingCredentials = Default.SymmetricEncryptingCredentials,
                             AdditionalHeaderClaims = new Dictionary<string, object>{{JwtHeaderParameterNames.Cty, "NonJWT"}}
                         },
                     },
-
+                    new CreateTokenTheoryData
+                    {
+                        TestId = "CtyInBothAdditionalClaims",
+                        Payload = Default.PayloadString,
+                        TokenDescriptor =  new SecurityTokenDescriptor
+                        {
+                            SigningCredentials = Default.SymmetricSigningCredentials,
+                            CompressionAlgorithm = CompressionAlgorithms.Deflate,
+                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
+                            AdditionalHeaderClaims = new Dictionary<string, object>{{JwtHeaderParameterNames.Cty, "str_outer"}},
+                            AdditionalInnerHeaderClaims = new Dictionary<string, object>{{JwtHeaderParameterNames.Cty, "str_inner"}}
+                        },
+                        ValidationParameters = new TokenValidationParameters
+                        {
+                            IssuerSigningKey = Default.SymmetricSigningCredentials.Key,
+                            TokenDecryptionKey = Default.SymmetricEncryptingCredentials.Key,
+                            ValidAudience = Default.Audience,
+                            ValidIssuer = Default.Issuer
+                        }
+                    },
+                    new CreateTokenTheoryData
+                    {
+                        TestId = "CtyInOuterAdditionalClaims",
+                        Payload = Default.PayloadString,
+                        TokenDescriptor =  new SecurityTokenDescriptor
+                        {
+                            SigningCredentials = Default.SymmetricSigningCredentials,
+                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
+                            AdditionalHeaderClaims = new Dictionary<string, object>{{JwtHeaderParameterNames.Cty, "str"}},
+                            AdditionalInnerHeaderClaims = new Dictionary<string, object>{ {"int", "123" } },
+                        },
+                        ValidationParameters = new TokenValidationParameters
+                        {
+                            IssuerSigningKey = Default.SymmetricSigningCredentials.Key,
+                            TokenDecryptionKey = Default.SymmetricEncryptingCredentials.Key,
+                            ValidAudience = Default.Audience,
+                            ValidIssuer = Default.Issuer
+                        }
+                    },
+                    new CreateTokenTheoryData
+                    {
+                        TestId = "DefaultParameterinAdditionalInnerHeaderClaims",
+                        Payload = Default.PayloadString,
+                        TokenDescriptor =  new SecurityTokenDescriptor
+                        {
+                            SigningCredentials = Default.SymmetricSigningCredentials,
+                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
+                            AdditionalHeaderClaims = new Dictionary<string, object>{ { JwtHeaderParameterNames.Cty, "str" } },
+                            AdditionalInnerHeaderClaims = new Dictionary<string, object>{ { JwtHeaderParameterNames.Enc, "str" } },
+                        },
+                        ExpectedException = ExpectedException.SecurityTokenException("IDX14116:")
+                    },
                 };
             }
         }
@@ -1071,7 +1160,8 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
             var handler = new JsonWebTokenHandler();
 
             var jwtTokenFromDescriptor = handler.CreateToken(theoryData.TokenDescriptor);
-            var validatedJwtTokenFromDescriptor = handler.ValidateToken(jwtTokenFromDescriptor, theoryData.ValidationParameters).SecurityToken as JsonWebToken;
+            var result = handler.ValidateToken(jwtTokenFromDescriptor, theoryData.ValidationParameters);
+            var validatedJwtTokenFromDescriptor = result.SecurityToken as JsonWebToken;
             var jwtTokenToCompare = handler.ValidateToken(theoryData.JwtToken, theoryData.ValidationParameters).SecurityToken as JsonWebToken;
 
             var jwtTokenFromString = handler.CreateToken(theoryData.Payload, theoryData.TokenDescriptor.EncryptingCredentials, theoryData.TokenDescriptor.AdditionalHeaderClaims);

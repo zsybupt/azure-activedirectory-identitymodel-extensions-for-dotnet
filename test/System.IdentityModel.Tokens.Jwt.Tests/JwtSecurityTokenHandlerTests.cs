@@ -42,27 +42,207 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
 {
     public class JwtSecurityTokenHandlerTests
     {
-        // This test checks to make sure there is 'cty' claim in the JWE outer token header.
-        [Fact]
-        public void CtyClaimInJWEHeader()
+
+        [Theory, MemberData(nameof(CreateJWEWithPayloadStringTheoryData))]
+        public void CreateJWEWithAdditionalHeaderClaims(CreateTokenTheoryData theoryData)
         {
-            TestUtilities.WriteHeader($"{this}.CtyClaimInJWEHeader");
-            var context = new CompareContext();
-
+            var context = TestUtilities.WriteHeader($"{this}.CreateJWEWithAdditionalHeaderClaims", theoryData);
             var handler = new JwtSecurityTokenHandler();
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                SigningCredentials = KeyingMaterial.JsonWebKeyRsa256SigningCredentials,
-                EncryptingCredentials = KeyingMaterial.DefaultSymmetricEncryptingCreds_Aes128_Sha2,
-                Claims = Default.PayloadDictionary
-            };
-            var tokenString = handler.CreateEncodedJwt(tokenDescriptor);
-            var jwt = handler.ReadJwtToken(tokenString);
 
-            if (!jwt.Header.ContainsKey(JwtHeaderParameterNames.Cty))
-                context.AddDiff("JWE does not have 'cty' claim in the header");
+            try
+            {
+                var jwtToken = handler.CreateEncodedJwt(theoryData.TokenDescriptor);
+                var jsonToken = handler.ReadJwtToken(jwtToken);
+
+                if (theoryData.TokenDescriptor.AdditionalHeaderClaims.TryGetValue(JwtHeaderParameterNames.Cty, out object ctyValue))
+                {
+                    if (!jsonToken.Header.TryGetValue(JwtHeaderParameterNames.Cty, out object headerCtyValue))
+                    {
+                        context.AddDiff($"'Cty' claim does not exist in the outer header but present in theoryData.AdditionalHeaderClaims.");
+                    }
+                    else
+                        IdentityComparer.AreEqual(ctyValue.ToString(), headerCtyValue.ToString(), context);
+                }
+                else
+                {
+                    if (!jsonToken.Header.TryGetValue(JwtHeaderParameterNames.Cty, out object headerCtyValue))
+                    {
+                        context.AddDiff($"'Cty' claim does not exist in the outer header. It is expected to have the default value '{JwtConstants.HeaderType}'.");
+                    }
+                    else
+                        IdentityComparer.AreEqual(JwtConstants.HeaderType, headerCtyValue.ToString(), context);
+                }
+
+                if (theoryData.TokenDescriptor.AdditionalInnerHeaderClaims != null)
+                {
+                    theoryData.ValidationParameters.ValidateLifetime = false;
+                    var result = handler.ValidateToken(jwtToken, theoryData.ValidationParameters, out SecurityToken validatedToken);
+                    var token = validatedToken as JwtSecurityToken;
+                    if (theoryData.TokenDescriptor.AdditionalInnerHeaderClaims.TryGetValue(JwtHeaderParameterNames.Cty, out object innerCtyValue))
+                    {
+                        if (!token.InnerToken.Header.TryGetValue(JwtHeaderParameterNames.Cty, out object headerCtyValue))
+                        {
+                            context.AddDiff($"'Cty' claim does not exist in the inner header but present in theoryData.AdditionalHeaderClaims.");
+                        }
+                        else
+                            IdentityComparer.AreEqual(innerCtyValue.ToString(), headerCtyValue.ToString(), context);
+                    }
+                    else
+                    {
+                        if (!token.InnerToken.Header.TryGetValue(JwtHeaderParameterNames.Cty, out object headerCtyValue))
+                        {
+                            context.AddDiff($"'Cty' claim does not exist in the inner header. It is expected to have the default value '{JwtConstants.HeaderType}'.");
+                        }
+                        else
+                            IdentityComparer.AreEqual(JwtConstants.HeaderType, headerCtyValue.ToString(), context);
+                    }
+
+                }
+            }
+            catch(Exception ex)
+            {
+                theoryData.ExpectedException.ProcessException(ex, context);
+            }
 
             TestUtilities.AssertFailIfErrors(context);
+        }
+
+        public static TheoryData<CreateTokenTheoryData> CreateJWEWithPayloadStringTheoryData
+        {
+            get
+            {
+                return new TheoryData<CreateTokenTheoryData>
+                {
+                    new CreateTokenTheoryData
+                    {
+                        First = true,
+                        TestId = "Unsigned",
+                        TokenDescriptor =  new SecurityTokenDescriptor
+                        {
+                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
+                            AdditionalHeaderClaims = new Dictionary<string, object>{ {"int", "123" } },
+                        },
+                    },
+                    new CreateTokenTheoryData
+                    {
+                        TestId = "Unsigned_CtyInAdditionalClaims",
+                        TokenDescriptor =  new SecurityTokenDescriptor
+                        {
+                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
+                            AdditionalHeaderClaims = new Dictionary<string, object>{{JwtHeaderParameterNames.Cty, "str"}}
+                        },
+                    },
+                    new CreateTokenTheoryData
+                    {
+                        TestId = "CtyInBothAdditionalHeaderClaims",
+                        TokenDescriptor =  new SecurityTokenDescriptor
+                        {
+                            SigningCredentials = Default.SymmetricSigningCredentials,
+                            CompressionAlgorithm = CompressionAlgorithms.Deflate,
+                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
+                            AdditionalHeaderClaims = new Dictionary<string, object>{{JwtHeaderParameterNames.Cty, "str_outer"}},
+                            AdditionalInnerHeaderClaims = new Dictionary<string, object>{{JwtHeaderParameterNames.Cty, "str_inner"}},
+                            Audience = Default.Audience,
+                            Issuer = Default.Issuer
+                        },
+                        ValidationParameters = new TokenValidationParameters
+                        {
+                            IssuerSigningKey = Default.SymmetricSigningCredentials.Key,
+                            TokenDecryptionKey = Default.SymmetricEncryptingCredentials.Key,
+                            ValidAudience = Default.Audience,
+                            ValidIssuer = Default.Issuer
+                        }
+                    },
+                    new CreateTokenTheoryData
+                    {
+                        TestId = "Outer_CustomCty_Inner_DefaultCty",
+                        TokenDescriptor =  new SecurityTokenDescriptor
+                        {
+                            SigningCredentials = Default.SymmetricSigningCredentials,
+                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
+                            AdditionalHeaderClaims = new Dictionary<string, object>{{JwtHeaderParameterNames.Cty, "str"}},
+                            AdditionalInnerHeaderClaims = new Dictionary<string, object>{ {"int", "123" } },
+                            Audience = Default.Audience,
+                            Issuer = Default.Issuer
+                        },
+                        ValidationParameters = new TokenValidationParameters
+                        {
+                            IssuerSigningKey = Default.SymmetricSigningCredentials.Key,
+                            TokenDecryptionKey = Default.SymmetricEncryptingCredentials.Key,
+                            ValidAudience = Default.Audience,
+                            ValidIssuer = Default.Issuer,
+                        }
+                    },
+                    new CreateTokenTheoryData
+                    {
+                        TestId = "Inner_CustomCty_Outer_DefaultCty",
+                        TokenDescriptor =  new SecurityTokenDescriptor
+                        {
+                            SigningCredentials = Default.SymmetricSigningCredentials,
+                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
+                            AdditionalHeaderClaims = new Dictionary<string, object>{ { "int", "123" } },
+                            AdditionalInnerHeaderClaims = new Dictionary<string, object>{ { JwtHeaderParameterNames.Cty, "str" } },
+                            Audience = Default.Audience,
+                            Issuer = Default.Issuer
+                        },
+                        ValidationParameters = new TokenValidationParameters
+                        {
+                            IssuerSigningKey = Default.SymmetricSigningCredentials.Key,
+                            TokenDecryptionKey = Default.SymmetricEncryptingCredentials.Key,
+                            ValidAudience = Default.Audience,
+                            ValidIssuer = Default.Issuer,
+                        }
+                    },
+                    new CreateTokenTheoryData
+                    {
+                        TestId = "EmptyAdditionalHeaderClaims",
+                        TokenDescriptor =  new SecurityTokenDescriptor
+                        {
+                            SigningCredentials = Default.SymmetricSigningCredentials,
+                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
+                            AdditionalHeaderClaims = new Dictionary<string, object>{ },
+                            AdditionalInnerHeaderClaims = new Dictionary<string, object>{ { JwtHeaderParameterNames.Cty, "str" } },
+                            Audience = Default.Audience,
+                            Issuer = Default.Issuer
+                        },
+                        ValidationParameters = new TokenValidationParameters
+                        {
+                            IssuerSigningKey = Default.SymmetricSigningCredentials.Key,
+                            TokenDecryptionKey = Default.SymmetricEncryptingCredentials.Key,
+                            ValidAudience = Default.Audience,
+                            ValidIssuer = Default.Issuer,
+                        }
+                    },
+                    new CreateTokenTheoryData
+                    {
+                        TestId = "DefaultParameterinAdditionalHeaderClaims",
+                        TokenDescriptor =  new SecurityTokenDescriptor
+                        {
+                            SigningCredentials = Default.SymmetricSigningCredentials,
+                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
+                            AdditionalHeaderClaims = new Dictionary<string, object>{ { JwtHeaderParameterNames.Enc, "str" } },
+                            AdditionalInnerHeaderClaims = new Dictionary<string, object>{ { JwtHeaderParameterNames.Cty, "str" } },
+                            Audience = Default.Audience,
+                            Issuer = Default.Issuer
+                        },
+                        ExpectedException = ExpectedException.SecurityTokenEncryptionFailedException("IDX10616:", typeof(SecurityTokenException))
+                    },
+                    new CreateTokenTheoryData
+                    {
+                        TestId = "DefaultParameterinAdditionalInnerHeaderClaims",
+                        TokenDescriptor =  new SecurityTokenDescriptor
+                        {
+                            SigningCredentials = Default.SymmetricSigningCredentials,
+                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
+                            AdditionalHeaderClaims = new Dictionary<string, object>{ { JwtHeaderParameterNames.Cty, "str" } },
+                            AdditionalInnerHeaderClaims = new Dictionary<string, object>{ { JwtHeaderParameterNames.Enc, "str" } },
+                            Audience = Default.Audience,
+                            Issuer = Default.Issuer
+                        },
+                        ExpectedException = ExpectedException.SecurityTokenException("IDX12742:")
+                    },
+                };
+            }
         }
 
         // Tests checks to make sure that the token string created by the JwtSecurityTokenHandler is consistent with the 

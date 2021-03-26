@@ -61,6 +61,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             get { return typeof(JsonWebToken); }
         }
 
+        internal static IDictionary<string, object> AddCtyClaimDefaultValue(IDictionary<string, object> additionalClaims)
+        {
+            if (additionalClaims == null)
+                additionalClaims = new Dictionary<string, object> { { JwtHeaderParameterNames.Cty, JwtConstants.HeaderType } };
+            else if (!additionalClaims.TryGetValue(JwtHeaderParameterNames.Cty, out _))
+                additionalClaims.Add(JwtHeaderParameterNames.Cty, JwtConstants.HeaderType);
+
+            return additionalClaims;
+        }
+
         /// <summary>
         /// Determines if the string is a well formed Json Web Token (JWT).
         /// <para>see: http://tools.ietf.org/html/rfc7519 </para>
@@ -173,7 +183,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (string.IsNullOrEmpty(payload))
                 throw LogHelper.LogArgumentNullException(nameof(payload));
 
-            return CreateTokenPrivate(payload, null, null, null, null, null);
+            return CreateTokenPrivate(payload, null, null, null, null, null, null);
         }
 
         /// <summary>
@@ -192,7 +202,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (additionalHeaderClaims == null)
                 throw LogHelper.LogArgumentNullException(nameof(additionalHeaderClaims));
 
-            return CreateTokenPrivate(payload, null, null, null, additionalHeaderClaims, null);
+            return CreateTokenPrivate(payload, null, null, null, additionalHeaderClaims, null, null);
         }
 
         /// <summary>
@@ -211,7 +221,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (signingCredentials == null)
                 throw LogHelper.LogArgumentNullException(nameof(signingCredentials));
 
-            return CreateTokenPrivate(payload, signingCredentials, null, null, null, null);
+            return CreateTokenPrivate(payload, signingCredentials, null, null, null, null, null);
         }
 
         /// <summary>
@@ -238,7 +248,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (additionalHeaderClaims == null)
                 throw LogHelper.LogArgumentNullException(nameof(additionalHeaderClaims));
 
-            return CreateTokenPrivate(payload, signingCredentials, null, null, additionalHeaderClaims, null);
+            return CreateTokenPrivate(payload, signingCredentials, null, null, additionalHeaderClaims, null, null);
         }
 
         /// <summary>
@@ -306,7 +316,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 payload[JwtRegisteredClaimNames.Nbf] = EpochTime.GetIntDate(tokenDescriptor.NotBefore.Value);
             }
 
-            return CreateTokenPrivate(payload.ToString(Formatting.None), tokenDescriptor.SigningCredentials, tokenDescriptor.EncryptingCredentials, tokenDescriptor.CompressionAlgorithm, tokenDescriptor.AdditionalHeaderClaims, tokenDescriptor.TokenType);
+            return CreateTokenPrivate(payload.ToString(Formatting.None), tokenDescriptor.SigningCredentials, tokenDescriptor.EncryptingCredentials, tokenDescriptor.CompressionAlgorithm, tokenDescriptor.AdditionalHeaderClaims, tokenDescriptor.AdditionalInnerHeaderClaims, tokenDescriptor.TokenType);
         }
 
         /// <summary>
@@ -323,7 +333,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (encryptingCredentials == null)
                 throw LogHelper.LogArgumentNullException(nameof(encryptingCredentials));
 
-            return CreateTokenPrivate(payload, null, encryptingCredentials, null, null, null);
+            return CreateTokenPrivate(payload, null, encryptingCredentials, null, null, null, null);
         }
 
         /// <summary>
@@ -350,7 +360,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (additionalHeaderClaims == null)
                 throw LogHelper.LogArgumentNullException(nameof(additionalHeaderClaims));
 
-            return CreateTokenPrivate(payload, null, encryptingCredentials, null, additionalHeaderClaims, null);
+            return CreateTokenPrivate(payload, null, encryptingCredentials, null, additionalHeaderClaims, null, null);
         }
 
         /// <summary>
@@ -374,7 +384,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (encryptingCredentials == null)
                 throw LogHelper.LogArgumentNullException(nameof(encryptingCredentials));
 
-            return CreateTokenPrivate(payload, signingCredentials, encryptingCredentials, null, null, null);
+            return CreateTokenPrivate(payload, signingCredentials, encryptingCredentials, null, null, null, null);
         }
 
         /// <summary>
@@ -406,7 +416,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (additionalHeaderClaims == null)
                 throw LogHelper.LogArgumentNullException(nameof(additionalHeaderClaims));
 
-            return CreateTokenPrivate(payload, signingCredentials, encryptingCredentials, null, additionalHeaderClaims, null);
+            return CreateTokenPrivate(payload, signingCredentials, encryptingCredentials, null, additionalHeaderClaims, null, null);
         }
 
         /// <summary>
@@ -427,7 +437,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (string.IsNullOrEmpty(compressionAlgorithm))
                 throw LogHelper.LogArgumentNullException(nameof(compressionAlgorithm));
 
-            return CreateTokenPrivate(payload, null, encryptingCredentials, compressionAlgorithm, null, null);
+            return CreateTokenPrivate(payload, null, encryptingCredentials, compressionAlgorithm, null, null, null);
         }
 
         /// <summary>
@@ -456,7 +466,48 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (string.IsNullOrEmpty(compressionAlgorithm))
                 throw LogHelper.LogArgumentNullException(nameof(compressionAlgorithm));
 
-            return CreateTokenPrivate(payload, signingCredentials, encryptingCredentials, compressionAlgorithm, null, null);
+            return CreateTokenPrivate(payload, signingCredentials, encryptingCredentials, compressionAlgorithm, null, null, null);
+        }
+
+        /// <summary>
+        /// Creates a JWE (Json Web Encryption).
+        /// </summary>
+        /// <param name="payload">A string containing JSON which represents the JWT token payload.</param>
+        /// <param name="signingCredentials">Defines the security key and algorithm that will be used to sign the JWT.</param>
+        /// <param name="encryptingCredentials">Defines the security key and algorithm that will be used to encrypt the JWT.</param>
+        /// <param name="compressionAlgorithm">Defines the compression algorithm that will be used to compress the JWT token payload.</param>       
+        /// <param name="additionalHeaderClaims">Defines the dictionary containing any custom header claims that need to be added to the outer JWT token header.</param>
+        /// <param name="additionalInnerHeaderClaims">Defines the dictionary containing any custom header claims that need to be added to the inner JWT token header.</param>
+        /// <exception cref="ArgumentNullException">if <paramref name="payload"/> is null.</exception>
+        /// <exception cref="ArgumentNullException">if <paramref name="signingCredentials"/> is null.</exception>
+        /// <exception cref="ArgumentNullException">if <paramref name="encryptingCredentials"/> is null.</exception>
+        /// <exception cref="ArgumentNullException">if <paramref name="compressionAlgorithm"/> is null.</exception>
+        /// <exception cref="ArgumentNullException">if <paramref name="additionalHeaderClaims"/> is null.</exception>
+        /// <exception cref="SecurityTokenException">if <see cref="JwtHeaderParameterNames.Alg"/>, <see cref="JwtHeaderParameterNames.Kid"/>
+        /// <see cref="JwtHeaderParameterNames.X5t"/>, <see cref="JwtHeaderParameterNames.Enc"/>, and/or <see cref="JwtHeaderParameterNames.Zip"/>
+        /// are present inside of <paramref name="additionalHeaderClaims"/>.</exception>
+        /// <returns>A JWE in compact serialization format.</returns>
+        public virtual string CreateToken(string payload, SigningCredentials signingCredentials, EncryptingCredentials encryptingCredentials, string compressionAlgorithm, IDictionary<string, object> additionalHeaderClaims, IDictionary<string, object> additionalInnerHeaderClaims)
+        {
+            if (string.IsNullOrEmpty(payload))
+                throw LogHelper.LogArgumentNullException(nameof(payload));
+
+            if (signingCredentials == null)
+                throw LogHelper.LogArgumentNullException(nameof(signingCredentials));
+
+            if (encryptingCredentials == null)
+                throw LogHelper.LogArgumentNullException(nameof(encryptingCredentials));
+
+            if (string.IsNullOrEmpty(compressionAlgorithm))
+                throw LogHelper.LogArgumentNullException(nameof(compressionAlgorithm));
+
+            if (additionalHeaderClaims == null)
+                throw LogHelper.LogArgumentNullException(nameof(additionalHeaderClaims));
+
+            if (additionalInnerHeaderClaims == null)
+                throw LogHelper.LogArgumentNullException(nameof(additionalInnerHeaderClaims));
+
+            return CreateTokenPrivate(payload, signingCredentials, encryptingCredentials, compressionAlgorithm, additionalHeaderClaims, additionalInnerHeaderClaims, null);
         }
 
         /// <summary>
@@ -493,18 +544,23 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (additionalHeaderClaims == null)
                 throw LogHelper.LogArgumentNullException(nameof(additionalHeaderClaims));
 
-            return CreateTokenPrivate(payload, signingCredentials, encryptingCredentials, compressionAlgorithm, additionalHeaderClaims, null);
+            return CreateTokenPrivate(payload, signingCredentials, encryptingCredentials, compressionAlgorithm, additionalHeaderClaims, null, null);
         }
 
-        private string CreateTokenPrivate(string payload, SigningCredentials signingCredentials, EncryptingCredentials encryptingCredentials, string compressionAlgorithm, IDictionary<string, object> additionalHeaderClaims, string tokenType)
+        private string CreateTokenPrivate(string payload, SigningCredentials signingCredentials, EncryptingCredentials encryptingCredentials, string compressionAlgorithm, IDictionary<string, object> additionalHeaderClaims, IDictionary<string, object> additionalInnerHeaderClaims, string tokenType)
         {
             if (additionalHeaderClaims?.Count > 0 && additionalHeaderClaims.Keys.Intersect(JwtTokenUtilities.DefaultHeaderParameters, StringComparer.OrdinalIgnoreCase).Any())
                 throw LogHelper.LogExceptionMessage(new SecurityTokenException(LogHelper.FormatInvariant(LogMessages.IDX14116, nameof(additionalHeaderClaims), string.Join(", ", JwtTokenUtilities.DefaultHeaderParameters))));
 
+            if (additionalInnerHeaderClaims?.Count > 0 && additionalInnerHeaderClaims.Keys.Intersect(JwtTokenUtilities.DefaultHeaderParameters, StringComparer.OrdinalIgnoreCase).Any())
+                throw LogHelper.LogExceptionMessage(new SecurityTokenException(LogHelper.FormatInvariant(LogMessages.IDX14116, nameof(additionalInnerHeaderClaims), string.Join(", ", JwtTokenUtilities.DefaultHeaderParameters))));
+
             var header = CreateDefaultJWSHeader(signingCredentials, tokenType);
 
-            if (encryptingCredentials == null && additionalHeaderClaims != null && additionalHeaderClaims.Count > 0)
+            if (encryptingCredentials ==  null && additionalHeaderClaims != null && additionalHeaderClaims.Count > 0)
                 header.Merge(JObject.FromObject(additionalHeaderClaims));
+
+            header.Merge(JObject.FromObject(AddCtyClaimDefaultValue(additionalInnerHeaderClaims)));
 
             var rawHeader = Base64UrlEncoder.Encode(Encoding.UTF8.GetBytes(header.ToString(Formatting.None)));
             try
@@ -522,19 +578,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                     if (!jsonPayload.TryGetValue(JwtRegisteredClaimNames.Nbf, out _))
                         jsonPayload.Add(JwtRegisteredClaimNames.Nbf, now);
                 }
-
-                if (encryptingCredentials != null)
-                {
-                    if (additionalHeaderClaims == null)
-                        additionalHeaderClaims = new Dictionary<string, object> { { JwtHeaderParameterNames.Cty, JwtConstants.HeaderType } };
-                    else if (!additionalHeaderClaims.TryGetValue(JwtHeaderParameterNames.Cty, out _))
-                    {
-                        if (!string.IsNullOrEmpty(tokenType))
-                            additionalHeaderClaims.Add(JwtHeaderParameterNames.Cty, tokenType);
-                        else
-                            additionalHeaderClaims.Add(JwtHeaderParameterNames.Cty, JwtConstants.HeaderType);
-                    }
-                }
             }
             catch(Exception ex)
             {
@@ -546,7 +589,10 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             var rawSignature = signingCredentials == null ? string.Empty : JwtTokenUtilities.CreateEncodedSignature(message, signingCredentials);
 
             if (encryptingCredentials != null)
+            {
+                additionalHeaderClaims = AddCtyClaimDefaultValue(additionalHeaderClaims);
                 return EncryptTokenPrivate(message + "." + rawSignature, encryptingCredentials, compressionAlgorithm, additionalHeaderClaims, tokenType);
+            }
 
             return message + "." + rawSignature;
         }
