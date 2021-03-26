@@ -563,11 +563,12 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             header.Merge(JObject.FromObject(AddCtyClaimDefaultValue(additionalInnerHeaderClaims)));
 
             var rawHeader = Base64UrlEncoder.Encode(Encoding.UTF8.GetBytes(header.ToString(Formatting.None)));
+            JObject jsonPayload = null;
             try
             {
                 if (SetDefaultTimesOnTokenCreation)
                 {
-                    var jsonPayload = JObject.Parse(payload);
+                    jsonPayload = JObject.Parse(payload);
                     var now = EpochTime.GetIntDate(DateTime.UtcNow);
                     if (!jsonPayload.TryGetValue(JwtRegisteredClaimNames.Exp, out _))
                         jsonPayload.Add(JwtRegisteredClaimNames.Exp, now + TokenLifetimeInMinutes * 60);
@@ -581,9 +582,9 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             }
             catch(Exception ex)
             {
-                LogHelper.LogInformation(LogHelper.FormatInvariant(LogMessages.IDX14307, ex, payload));
+                throw LogHelper.LogExceptionMessage(new SecurityTokenException(LogHelper.FormatInvariant(LogMessages.IDX14307, ex, payload)));
             }
-
+            payload = jsonPayload != null ? jsonPayload.ToString(Formatting.None) : payload;
             var rawPayload = Base64UrlEncoder.Encode(Encoding.UTF8.GetBytes(payload));
             var message = rawHeader + "." + rawPayload;
             var rawSignature = signingCredentials == null ? string.Empty : JwtTokenUtilities.CreateEncodedSignature(message, signingCredentials);

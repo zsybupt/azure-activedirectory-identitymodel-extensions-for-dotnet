@@ -104,7 +104,7 @@ namespace System.IdentityModel.Tokens.Jwt
         /// <param name="signingCredentials"><see cref="SigningCredentials"/> used when creating a JWS Compact JSON.</param>
         /// <param name="outboundAlgorithmMap">provides a mapping for the 'alg' value so that values are within the JWT namespace.</param>
         /// <param name="tokenType"> will be added as the value for the 'typ' claim in the header. If it is null or empty <see cref="JwtConstants.HeaderType"/> will be used as token type</param>
-        /// <param name="additionalInnerHeaderClaims"></param>
+        /// <param name="additionalInnerHeaderClaims">Defines the dictionary containing any custom header claims that need to be added to the inner JWT token header.</param>
         public JwtHeader(SigningCredentials signingCredentials, IDictionary<string, string> outboundAlgorithmMap, string tokenType, IDictionary<string, object> additionalInnerHeaderClaims)
             : base(StringComparer.Ordinal)
         {
@@ -169,7 +169,7 @@ namespace System.IdentityModel.Tokens.Jwt
         /// <param name="encryptingCredentials"><see cref="EncryptingCredentials"/> used when creating a JWS Compact JSON.</param>
         /// <param name="outboundAlgorithmMap">provides a mapping for the 'alg' value so that values are within the JWT namespace.</param>
         /// <param name="tokenType"> provides the token type</param>
-        /// <param name="additionalHeaderClaims"></param>
+        /// <param name="additionalHeaderClaims">Defines the dictionary containing any custom header claims that need to be added to the outer JWT token header.</param>
         /// <exception cref="ArgumentNullException">If 'encryptingCredentials' is null.</exception>
         public JwtHeader(EncryptingCredentials encryptingCredentials, IDictionary<string, string> outboundAlgorithmMap, string tokenType, IDictionary<string, object> additionalHeaderClaims)
             : base(StringComparer.Ordinal)

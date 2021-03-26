@@ -992,7 +992,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
         public void CreateJWEWithPayloadString(CreateTokenTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.CreateJWEWithAdditionalHeaderClaims", theoryData);
-            var handler = new JsonWebTokenHandler();
+            var handler = theoryData.JsonWebTokenHandler;
             string jwtTokenWithSigning = null;
             JsonWebToken jsonTokenWithSigning = null;
             try
@@ -1070,6 +1070,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                         First = true,
                         TestId = "JsonPayload",
                         Payload = Default.PayloadString,
+                        JsonWebTokenHandler = new JsonWebTokenHandler(),
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
                             EncryptingCredentials = Default.SymmetricEncryptingCredentials,
@@ -1080,6 +1081,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                     {
                         TestId = "JsonPayload_CtyInAdditionalClaims",
                         Payload = Default.PayloadString,
+                        JsonWebTokenHandler = new JsonWebTokenHandler(),
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
                             EncryptingCredentials = Default.SymmetricEncryptingCredentials,
@@ -1090,6 +1092,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                     {
                         TestId = "NonJsonPayload",
                         Payload = Guid.NewGuid().ToString(),
+                        JsonWebTokenHandler = new JsonWebTokenHandler(){ SetDefaultTimesOnTokenCreation = false},
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
                             EncryptingCredentials = Default.SymmetricEncryptingCredentials,
@@ -1098,8 +1101,21 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                     },
                     new CreateTokenTheoryData
                     {
+                        TestId = "NonJsonPayload_DefaultTimes",
+                        Payload = Guid.NewGuid().ToString(),
+                        JsonWebTokenHandler = new JsonWebTokenHandler(),
+                        TokenDescriptor =  new SecurityTokenDescriptor
+                        {
+                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
+                            AdditionalHeaderClaims = new Dictionary<string, object>{{JwtHeaderParameterNames.Cty, "NonJWT"}}
+                        },
+                        ExpectedException = ExpectedException.SecurityTokenException("IDX14307:")
+                    },
+                    new CreateTokenTheoryData
+                    {
                         TestId = "CtyInBothAdditionalClaims",
                         Payload = Default.PayloadString,
+                        JsonWebTokenHandler = new JsonWebTokenHandler(),
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
                             SigningCredentials = Default.SymmetricSigningCredentials,
@@ -1120,6 +1136,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                     {
                         TestId = "CtyInOuterAdditionalClaims",
                         Payload = Default.PayloadString,
+                        JsonWebTokenHandler = new JsonWebTokenHandler(),
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
                             SigningCredentials = Default.SymmetricSigningCredentials,
@@ -1139,6 +1156,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                     {
                         TestId = "DefaultParameterinAdditionalInnerHeaderClaims",
                         Payload = Default.PayloadString,
+                        JsonWebTokenHandler = new JsonWebTokenHandler(),
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
                             SigningCredentials = Default.SymmetricSigningCredentials,
@@ -1160,12 +1178,8 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
             var handler = new JsonWebTokenHandler();
 
             var jwtTokenFromDescriptor = handler.CreateToken(theoryData.TokenDescriptor);
-            var result = handler.ValidateToken(jwtTokenFromDescriptor, theoryData.ValidationParameters);
-            var validatedJwtTokenFromDescriptor = result.SecurityToken as JsonWebToken;
+            var validatedJwtTokenFromDescriptor = handler.ValidateToken(jwtTokenFromDescriptor, theoryData.ValidationParameters).SecurityToken as JsonWebToken;
             var jwtTokenToCompare = handler.ValidateToken(theoryData.JwtToken, theoryData.ValidationParameters).SecurityToken as JsonWebToken;
-
-            var jwtTokenFromString = handler.CreateToken(theoryData.Payload, theoryData.TokenDescriptor.EncryptingCredentials, theoryData.TokenDescriptor.AdditionalHeaderClaims);
-            var validatedJwtTokenString = handler.ValidateToken(jwtTokenFromString, theoryData.ValidationParameters).SecurityToken as JsonWebToken;
 
             context.PropertiesToIgnoreWhenComparing = new Dictionary<Type, List<string>>
             {
@@ -1173,17 +1187,9 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
             };
             IdentityComparer.AreEqual(validatedJwtTokenFromDescriptor, jwtTokenToCompare, context);
 
-            if(!theoryData.ValidationParameters.RequireSignedTokens)
-            IdentityComparer.AreEqual(validatedJwtTokenFromDescriptor, validatedJwtTokenString, context);
-
-            IdentityComparer.AreEqual(new JsonWebToken(jwtTokenFromDescriptor), new JsonWebToken(jwtTokenFromString), context);
-
             foreach (var key in theoryData.TokenDescriptor.AdditionalHeaderClaims.Keys)
             {
-                if (validatedJwtTokenFromDescriptor.InnerToken.TryGetHeaderValue(key, out string headerValue) && !key.Equals(JwtHeaderParameterNames.Typ))
-                    context.AddDiff($"Inner JWT header should not contain the '{key}' claim.");
-
-                if (!validatedJwtTokenFromDescriptor.TryGetHeaderValue(key, out headerValue))
+                if (!validatedJwtTokenFromDescriptor.TryGetHeaderValue(key, out string headerValue))
                     context.AddDiff($"JWE header does not contain the '{key}' claim.");
 
                 var headerValueToCompare = jwtTokenToCompare.GetHeaderValue<string>(key);
