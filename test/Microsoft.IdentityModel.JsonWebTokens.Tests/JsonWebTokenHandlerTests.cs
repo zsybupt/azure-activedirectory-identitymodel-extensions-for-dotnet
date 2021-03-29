@@ -992,7 +992,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
         public void CreateJWEWithPayloadString(CreateTokenTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.CreateJWEWithAdditionalHeaderClaims", theoryData);
-            var handler = theoryData.JsonWebTokenHandler;
+            var handler = new JsonWebTokenHandler();
             string jwtTokenWithSigning = null;
             JsonWebToken jsonTokenWithSigning = null;
             try
@@ -1070,7 +1070,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                         First = true,
                         TestId = "JsonPayload",
                         Payload = Default.PayloadString,
-                        JsonWebTokenHandler = new JsonWebTokenHandler(),
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
                             EncryptingCredentials = Default.SymmetricEncryptingCredentials,
@@ -1081,7 +1080,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                     {
                         TestId = "JsonPayload_CtyInAdditionalClaims",
                         Payload = Default.PayloadString,
-                        JsonWebTokenHandler = new JsonWebTokenHandler(),
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
                             EncryptingCredentials = Default.SymmetricEncryptingCredentials,
@@ -1092,30 +1090,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                     {
                         TestId = "NonJsonPayload",
                         Payload = Guid.NewGuid().ToString(),
-                        JsonWebTokenHandler = new JsonWebTokenHandler(){ SetDefaultTimesOnTokenCreation = false},
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
                             EncryptingCredentials = Default.SymmetricEncryptingCredentials,
                             AdditionalHeaderClaims = new Dictionary<string, object>{{JwtHeaderParameterNames.Cty, "NonJWT"}}
                         },
-                    },
-                    new CreateTokenTheoryData
-                    {
-                        TestId = "NonJsonPayload_DefaultTimes",
-                        Payload = Guid.NewGuid().ToString(),
-                        JsonWebTokenHandler = new JsonWebTokenHandler(),
-                        TokenDescriptor =  new SecurityTokenDescriptor
-                        {
-                            EncryptingCredentials = Default.SymmetricEncryptingCredentials,
-                            AdditionalHeaderClaims = new Dictionary<string, object>{{JwtHeaderParameterNames.Cty, "NonJWT"}}
-                        },
-                        ExpectedException = ExpectedException.SecurityTokenException("IDX14307:")
                     },
                     new CreateTokenTheoryData
                     {
                         TestId = "CtyInBothAdditionalClaims",
                         Payload = Default.PayloadString,
-                        JsonWebTokenHandler = new JsonWebTokenHandler(),
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
                             SigningCredentials = Default.SymmetricSigningCredentials,
@@ -1136,7 +1120,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                     {
                         TestId = "CtyInOuterAdditionalClaims",
                         Payload = Default.PayloadString,
-                        JsonWebTokenHandler = new JsonWebTokenHandler(),
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
                             SigningCredentials = Default.SymmetricSigningCredentials,
@@ -1156,7 +1139,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                     {
                         TestId = "DefaultParameterinAdditionalInnerHeaderClaims",
                         Payload = Default.PayloadString,
-                        JsonWebTokenHandler = new JsonWebTokenHandler(),
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
                             SigningCredentials = Default.SymmetricSigningCredentials,

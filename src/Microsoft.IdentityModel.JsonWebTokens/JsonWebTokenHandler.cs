@@ -569,20 +569,23 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 if (SetDefaultTimesOnTokenCreation)
                 {
                     jsonPayload = JObject.Parse(payload);
-                    var now = EpochTime.GetIntDate(DateTime.UtcNow);
-                    if (!jsonPayload.TryGetValue(JwtRegisteredClaimNames.Exp, out _))
-                        jsonPayload.Add(JwtRegisteredClaimNames.Exp, now + TokenLifetimeInMinutes * 60);
+                    if (jsonPayload != null)
+                    {
+                        var now = EpochTime.GetIntDate(DateTime.UtcNow);
+                        if (!jsonPayload.TryGetValue(JwtRegisteredClaimNames.Exp, out _))
+                            jsonPayload.Add(JwtRegisteredClaimNames.Exp, now + TokenLifetimeInMinutes * 60);
 
-                    if (!jsonPayload.TryGetValue(JwtRegisteredClaimNames.Iat, out _))
-                        jsonPayload.Add(JwtRegisteredClaimNames.Iat, now);
+                        if (!jsonPayload.TryGetValue(JwtRegisteredClaimNames.Iat, out _))
+                            jsonPayload.Add(JwtRegisteredClaimNames.Iat, now);
 
-                    if (!jsonPayload.TryGetValue(JwtRegisteredClaimNames.Nbf, out _))
-                        jsonPayload.Add(JwtRegisteredClaimNames.Nbf, now);
+                        if (!jsonPayload.TryGetValue(JwtRegisteredClaimNames.Nbf, out _))
+                            jsonPayload.Add(JwtRegisteredClaimNames.Nbf, now);
+                    }
                 }
             }
             catch(Exception ex)
             {
-                throw LogHelper.LogExceptionMessage(new SecurityTokenException(LogHelper.FormatInvariant(LogMessages.IDX14307, ex, payload)));
+                LogHelper.LogExceptionMessage(new SecurityTokenException(LogHelper.FormatInvariant(LogMessages.IDX14307, ex, payload)));
             }
             payload = jsonPayload != null ? jsonPayload.ToString(Formatting.None) : payload;
             var rawPayload = Base64UrlEncoder.Encode(Encoding.UTF8.GetBytes(payload));
