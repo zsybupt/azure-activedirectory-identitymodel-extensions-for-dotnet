@@ -28,6 +28,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
 using Microsoft.IdentityModel.TestUtils;
 using Xunit;
@@ -54,7 +55,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                 formatter.Serialize(memoryStream, exception);
 
                 memoryStream.Seek(0, SeekOrigin.Begin);
-
+                formatter.Binder = new ExceptionSerializationBinder();
                 var serializedException = formatter.Deserialize(memoryStream);
 
                 theoryData.ExpectedException.ProcessNoException(context);
@@ -250,6 +251,26 @@ namespace Microsoft.IdentityModel.Tokens.Tests
         public Type ExceptionType { get; set; }
 
         public Action<Exception> ExceptionSetter { get; set; }
+    }
+
+    public class ExceptionSerializationBinder : SerializationBinder
+    {
+        public override Type BindToType(string assemblyName, string typeName)
+        {
+            // One way to discover expected types is through testing deserialization
+            // of **valid** data and logging the types used.
+
+            ////Console.WriteLine($"BindToType('{assemblyName}', '{typeName}')");
+
+            if (typeName.EndsWith("Exception") || typeName.EndsWith("Failure"))
+            {
+                return null;
+            }
+            else
+            {
+                throw new ArgumentException("Unexpected type", typeName);
+            }
+        }
     }
 }
 
