@@ -1024,6 +1024,154 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             TestUtilities.AssertFailIfErrors(context);
         }
 
+        /// <summary>
+        /// Testing adding/removing providers to the Default cache w/o leaking task at the end of test.
+        /// </summary>
+        [Fact]
+        public void ProviderCacheTest_EnsureNoLeakingTasks()
+        {
+            MethodInfo methodInfo = typeof(Task).GetTypeInfo().GetMethod("GetActiveTasks", BindingFlags.NonPublic | BindingFlags.Static);
+            var activeTasksAtStart = methodInfo.Invoke(this, new object[] { }) as Task[];
+
+            var cryptoProviderFactory = CryptoProviderFactory.Default;
+            var cache = cryptoProviderFactory.CryptoProviderCache as InMemoryCryptoProviderCache;
+
+            // create signing providers
+            var signingProviders = CreateSigningProviders(cryptoProviderFactory);
+
+            // create verifying providers
+            var verifyingProviders = CreateVerifyingProviders(cryptoProviderFactory);
+
+            // make sure providers can be retrieved from the cache
+            if (cache.TryGetSignatureProvider(Default.AsymmetricSigningKey, Default.AsymmetricSigningAlgorithm, typeof(AsymmetricSignatureProvider).ToString(), true, out var tmpProvider))
+            {
+                Assert.True(tmpProvider != null);
+            }
+
+            // remove all signing providers
+            foreach (var provider in signingProviders)
+                cache.TryRemove(provider);
+
+            foreach (var provider in verifyingProviders)
+                cache.TryRemove(provider);
+
+            Thread.Sleep(1000); // give it some time to allow the tasks to stop
+
+            var activeTasksAtEnd = methodInfo.Invoke(this, new object[] { }) as Task[];
+            Assert.True(activeTasksAtStart.Length == activeTasksAtEnd.Length); ////// verify no task leak
+
+            //=============================================================================================
+            // repeat the steps and verify tasks will be restarted again and stopped when cache is empty...
+            //=============================================================================================
+
+            signingProviders = CreateSigningProviders(cryptoProviderFactory); // create signing providers
+
+            // remove all signing providers
+            foreach (var provider in signingProviders)
+                cache.TryRemove(provider);
+
+            Thread.Sleep(1000); // give it some time to allow the tasks to stop
+
+            activeTasksAtEnd = methodInfo.Invoke(this, new object[] { }) as Task[];
+            Assert.True(activeTasksAtStart.Length == activeTasksAtEnd.Length); ////// verify no task leak
+        }
+
+        /// <summary>
+        /// Test adding and removing providers by multiple threads w/o exception.
+        /// </summary>
+        [Fact]
+        public void ProviderCacheTest_EnsureNoException_MultipleThreads()
+        {
+            MethodInfo methodInfo = typeof(Task).GetTypeInfo().GetMethod("GetActiveTasks", BindingFlags.NonPublic | BindingFlags.Static);
+            var activeTasksAtStart = methodInfo.Invoke(this, new object[] { }) as Task[];
+
+            var factory = CryptoProviderFactory.Default;
+
+            int count = 5;
+            List<Thread> signingThreads = new List<Thread>(count);
+            for (int i = 0; i < count; i++)
+            {
+                var thread = new Thread(new ParameterizedThreadStart(ThreadStartProcAddProviders));
+                thread.Start((CreateProvidersFunc)CreateSigningProviders);
+                signingThreads.Add(thread);
+            }
+
+            List<Thread> verifyingThreads = new List<Thread>(count);
+            for (int i = 0; i < count; i++)
+            {
+                var thread = new Thread(new ParameterizedThreadStart(ThreadStartProcAddProviders));
+                thread.Start((CreateProvidersFunc)CreateVerifyingProviders);
+                verifyingThreads.Add(thread);
+            }
+
+            // wait for all threads to finish
+            foreach (Thread thread in signingThreads)
+                thread.Join();
+
+            foreach (Thread thread in verifyingThreads)
+                thread.Join();
+
+            var activeTasksAtEnd = methodInfo.Invoke(this, new object[] { }) as Task[];
+            Assert.True(activeTasksAtStart.Length == activeTasksAtEnd.Length); ////// verify no task leak
+        }
+
+        private static void ThreadStartProcAddProviders(Object obj)
+        {
+            var createFunc = (CreateProvidersFunc)obj;
+
+            var factory = CryptoProviderFactory.Default;
+            var cache = factory.CryptoProviderCache as InMemoryCryptoProviderCache;
+
+            // create signing providers
+            var providers = createFunc(factory);
+            foreach (var provider in providers)
+            {
+                provider.AddRef();
+                Thread.Sleep(100);
+                provider.Release();
+            }
+
+            Thread.Sleep(500);
+            foreach (var provider in providers)
+                cache.TryRemove(provider);
+        }
+
+        public delegate IList<SignatureProvider> CreateProvidersFunc(CryptoProviderFactory factory);
+
+        /// <summary>
+        /// Helper method to create some signing providers.
+        /// </summary>
+        /// <param name="factory"><see cref="CryptoProviderFactory"/>the factory to create providers</param>
+        /// <returns>a list of signing providers</returns>
+        private static IList<SignatureProvider> CreateSigningProviders(CryptoProviderFactory factory)
+        {
+            var providers = new List<SignatureProvider>();
+
+            providers.Add(factory.CreateForSigning(Default.AsymmetricSigningKey, Default.AsymmetricSigningAlgorithm));
+            providers.Add(factory.CreateForSigning(Default.SymmetricSigningKey, SecurityAlgorithms.HmacSha256Signature));
+            providers.Add(factory.CreateForSigning(Default.SymmetricSigningKey512, ALG.HmacSha512));
+            providers.Add(factory.CreateForSigning(Default.SymmetricSigningKey384, ALG.HmacSha384));
+
+            return providers;
+        }
+
+        /// <summary>
+        /// Helper method to create some verifying providers.
+        /// </summary>
+        /// <param name="factory"><see cref="CryptoProviderFactory"/>the factory to create providers</param>
+        /// <returns>a list of verifying providers</returns>
+        private static IList<SignatureProvider> CreateVerifyingProviders(CryptoProviderFactory factory)
+        {
+            var providers = new List<SignatureProvider>();
+
+            providers.Add(factory.CreateForVerifying(Default.AsymmetricSigningKey, Default.AsymmetricSigningAlgorithm));
+            providers.Add(factory.CreateForVerifying(Default.SymmetricSigningKey, SecurityAlgorithms.HmacSha256Signature));
+            providers.Add(factory.CreateForVerifying(Default.SymmetricSigningKey512, ALG.HmacSha512));
+            providers.Add(factory.CreateForVerifying(Default.SymmetricSigningKey384, ALG.HmacSha384));
+
+            return providers;
+        }
+
         private static bool GetSignatureProviderIsDisposedByReflect(SignatureProvider signatureProvider) =>
             (bool)signatureProvider.GetType().GetField("_disposed", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(signatureProvider);
     }

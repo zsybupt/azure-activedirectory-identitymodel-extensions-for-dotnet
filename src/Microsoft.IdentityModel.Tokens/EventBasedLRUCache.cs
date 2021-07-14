@@ -57,7 +57,11 @@ namespace Microsoft.IdentityModel.Tokens
         private readonly double _compactionPercentage = .20;
         private LinkedList<LRUCacheItem<TKey, TValue>> _doubleLinkedList = new LinkedList<LRUCacheItem<TKey, TValue>>();
         private BlockingCollection<Action> _eventQueue = new BlockingCollection<Action>();
-        private readonly Task _eventQueueTask;
+
+        // the event queue and maintenance tasks
+        private Task _eventQueueTask;
+        private Task _maintenanceTask;
+
         private ConcurrentDictionary<TKey, LRUCacheItem<TKey, TValue>> _map;
         // When the current cache size gets to this percentage of _capacity, _compactionPercentage% of the cache will be removed.
         private readonly double _maxCapacityPercentage = .95;
@@ -65,6 +69,20 @@ namespace Microsoft.IdentityModel.Tokens
         private readonly int _tryTakeTimeout;
         // if true, expired values will not be added to the cache and clean-up of expired values will occur on a 5 minute interval
         private readonly bool _removeExpiredValues;
+        private readonly int _cleanUpIntervalInSeconds;
+
+        // the token to cancel the maintenanec task when it is in delay/wait state
+        private CancellationTokenSource _maintenanceTaskCancellationToken;
+
+        private readonly TaskCreationOptions _options;
+
+        // task states used to ensure thread safety (Interlocked.CompareExchange)
+        private const int EventQueueTaskStopped = 0; // task not started yet
+        private const int EventQueueTaskRunning = 1; // task is running
+        private const int EventQueueTaskStopRequested = 2; // a request has been received to stop the task
+
+        private int _eventQueueTaskState = EventQueueTaskStopped;
+        private int _maintenanceTaskState = EventQueueTaskStopped;
 
         internal EventBasedLRUCache(
             int capacity,
@@ -76,17 +94,16 @@ namespace Microsoft.IdentityModel.Tokens
         {
             _tryTakeTimeout = tryTakeTimeout;
             _capacity = capacity > 0 ? capacity : throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(capacity)));
+            _options = options;
             _map = new ConcurrentDictionary<TKey, LRUCacheItem<TKey, TValue>>(comparer ?? EqualityComparer<TKey>.Default);
+            _cleanUpIntervalInSeconds = cleanUpIntervalInSeconds;
             _removeExpiredValues = removeExpiredValues;
-            _eventQueueTask = new Task(OnStart, options);
-            _eventQueueTask.Start();
-            if (_removeExpiredValues)
-                _ = RemoveExpiredValuesPeriodically(TimeSpan.FromSeconds(cleanUpIntervalInSeconds));
         }
 
-        private void OnStart()
+        private void EventQueueTaskAction()
         {
-            while (!_disposed)
+            // keep running until it is to be disposed, or when asked to stop (EventQueueTaskStopping)
+            while (!_disposed && Interlocked.CompareExchange(ref _eventQueueTaskState, EventQueueTaskStopped, EventQueueTaskStopRequested) != EventQueueTaskStopRequested)
             {
                 try
                 {
@@ -149,7 +166,11 @@ namespace Microsoft.IdentityModel.Tokens
             return numItemsRemoved;
         }
 
-        internal void RemoveLRUs()
+        /// <summary>
+        /// Remove items from the LinkedList by the desired compaction percentage.
+        /// This should be a private method.
+        /// </summary>
+        private void RemoveLRUs()
         {
             // use the _capacity for the newCacheSize calculation in the case where the cache is experiencing overflow
             int currentCount = _map.Count <= _capacity ? _capacity : _map.Count;
@@ -164,14 +185,20 @@ namespace Microsoft.IdentityModel.Tokens
             }
         }
 
-        async Task RemoveExpiredValuesPeriodically(TimeSpan interval)
+        /// <summary>
+        /// Removes the expired items from the event queue.
+        /// </summary>
+        /// <param name="interval">The interval, in milliseconds, for which the thread is suspended</param>
+        /// <param name="cancellationToken">the cancellation token</param>
+        async Task RemoveExpiredValuesPeriodically(TimeSpan interval, CancellationToken cancellationToken)
         {
             try
             {
-                while (!_disposed)
+                // keep running until it is to be disposed, or is asked to stop (EventQueueTaskStopRequested)
+                while (!_disposed && Interlocked.CompareExchange(ref _maintenanceTaskState, EventQueueTaskStopped, EventQueueTaskStopRequested) != EventQueueTaskStopRequested)
                 {
                     _eventQueue.Add(() => RemoveExpiredValues());
-                    await Task.Delay(interval).ConfigureAwait(false);
+                    await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (ObjectDisposedException ex)
@@ -196,6 +223,9 @@ namespace Microsoft.IdentityModel.Tokens
             // if item already expired, do not add it to the cache if the _removeExpiredValues setting is set to true
             if (_removeExpiredValues && expirationTime < DateTime.UtcNow)
                 return false;
+
+            // start the event queue task if it is not running
+            StartEventQueueTasksIfNotRunning();
 
             // just need to update value and move it to the top
             if (_map.TryGetValue(key, out var cacheItem))
@@ -269,7 +299,7 @@ namespace Microsoft.IdentityModel.Tokens
             }
 
             value = cacheItem.Value;
-            _eventQueue.Add(() => _doubleLinkedList.Remove(cacheItem));
+            _eventQueue.Add(() => RemoveItemFromLinkedList(cacheItem));
             if (_map.TryRemove(key, out cacheItem))
             {
                 OnItemRemoved?.Invoke(cacheItem.Value);
@@ -277,6 +307,89 @@ namespace Microsoft.IdentityModel.Tokens
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Remove an item from the LinkedList.
+        /// When the last item is removed from the LinkedList, the OnLinkedListItemRemoved() will cancel the running _eventQueue task.
+        /// </summary>
+        /// <param name="newCacheItem">the item to be removed</param>
+        private void RemoveItemFromLinkedList(LRUCacheItem<TKey, TValue> newCacheItem)
+        {
+            _doubleLinkedList.Remove(newCacheItem);
+            OnLinkedListItemRemoved();
+        }
+
+
+        /// <summary>
+        /// The method handling the event when an item is removed from the LinkedList.
+        /// The _eventQueueTask needs to be cancelled if the _doubleLinkedList is empty.
+        /// </summary>
+        private void OnLinkedListItemRemoved()
+        {
+            _eventQueueTaskState = EventQueueTaskStopRequested; // set to stopping to prevent task being started
+            _maintenanceTaskState = EventQueueTaskStopRequested;
+
+            // stop the tasks only when both the _doubleLinkedList and _eventQueue are empty, otherwise change back to running
+            if (_doubleLinkedList.Count != 0 || _eventQueue.Count != 0)
+            {
+                _eventQueueTaskState = EventQueueTaskRunning; // set to the state back to running
+                _maintenanceTaskState = EventQueueTaskRunning; // set to the state back to running
+
+                return;
+            }
+
+            // proceed to stop tasks
+            if (_maintenanceTaskCancellationToken != null)
+                _maintenanceTaskCancellationToken.Cancel(); // cancel the maintenance task, this will wake up the task in delay/wait state
+        }
+
+        /// <summary>
+        /// The method handling the event when an item is added to the LinkedList.
+        /// The _eventQueueTask needs to be started if the _doubleLinkedList is empty.
+        /// </summary>
+        private void StartEventQueueTasksIfNotRunning()
+        {
+            // If the event queue task is set to be stopped but has not exited yet, abort the stopping process.
+            // Setting _eventQueueTaskState to EventQueueTaskRunning will keep the task in EventQueueTaskAction running.
+            if (Interlocked.CompareExchange(ref _eventQueueTaskState, EventQueueTaskRunning, EventQueueTaskStopRequested) == EventQueueTaskStopRequested)
+            {
+                return;
+            }
+
+            StartEventQueueTasks();
+        }
+
+        /// <summary>
+        /// Start the event queue and maintenance tasks if they are not running.
+        /// </summary>
+        private void StartEventQueueTasks()
+        {
+            // If the event queue task has already stopped, start it
+            if (Interlocked.CompareExchange(ref _eventQueueTaskState, EventQueueTaskRunning, EventQueueTaskStopped) == EventQueueTaskStopped)
+            {
+                var eventQueueTask = new Task(EventQueueTaskAction, _options);
+                eventQueueTask.Start();
+                eventQueueTask.GetAwaiter().OnCompleted(() => eventQueueTask.Wait()); // dispose the task when it is complete
+
+                _eventQueueTask = eventQueueTask;
+
+                // start the maintenance task if _removeExpiredValues is true
+                if (_removeExpiredValues)
+                {
+                    _maintenanceTaskCancellationToken = new();
+                    var maintenanceTask = RemoveExpiredValuesPeriodically(TimeSpan.FromSeconds(_cleanUpIntervalInSeconds), _maintenanceTaskCancellationToken.Token);
+                    maintenanceTask.GetAwaiter().OnCompleted(() =>
+                    {
+                        maintenanceTask.Wait();
+                        _maintenanceTaskCancellationToken.Dispose(); // dispose the maintenance task when it is complete
+                        _maintenanceTaskCancellationToken = null;
+                        _maintenanceTaskState = EventQueueTaskStopped;
+                    });
+
+                    _maintenanceTask = maintenanceTask;
+                }
+            }
         }
 
         internal ItemRemoved OnItemRemoved
@@ -313,7 +426,7 @@ namespace Microsoft.IdentityModel.Tokens
         /// FOR TESTING ONLY.
         /// </summary>
         internal long EventQueueCount => _eventQueue.Count;
-#endregion
+        #endregion
 
         /// <summary>
         /// Calls <see cref="Dispose(bool)"/> and <see cref="GC.SuppressFinalize"/>
@@ -337,7 +450,12 @@ namespace Microsoft.IdentityModel.Tokens
                 _disposed = true;
                 if (disposing)
                 {
-                    _eventQueueTask.Wait();
+                    if (_eventQueueTask != null)
+                        _eventQueueTask.Wait();
+
+                    if (_maintenanceTaskCancellationToken != null)
+                        _maintenanceTaskCancellationToken.Dispose();
+
                     _eventQueue.Dispose();
                     _eventQueue = null;
                     _map = null;
@@ -373,6 +491,22 @@ namespace Microsoft.IdentityModel.Tokens
         }
 
         public override int GetHashCode() => 990326508 + EqualityComparer<TKey>.Default.GetHashCode(Key);
+    }
+
+    internal class LRUCacheTaskItem
+    {
+        private readonly Func<bool> condition;
+        private readonly Action action;
+        private readonly Task task;
+
+        public LRUCacheTaskItem(Task task, Func<bool> condition, Action action)
+        {
+            this.task = task;
+            this.condition = condition;
+            this.action = action;
+        }
+
+        public int Key => this.task.Id; 
     }
 }
 
