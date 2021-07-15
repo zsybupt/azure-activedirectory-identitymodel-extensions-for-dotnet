@@ -1036,6 +1036,8 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             var cache = cryptoProviderFactory.CryptoProviderCache as InMemoryCryptoProviderCache;
 
             Console.WriteLine($"====== ProviderCacheTest_EnsureNoLeakingTasks ===========>>>> TaskCount: {cache.TaskCount}, LinkedListCountSigning: {cache.LinkedListCountSigning()}, LinkedListCountVerifying: {cache.LinkedListCountVerifying()}, MapCountSigning: {cache.MapCountSigning()}, MapCountVerifying: {cache.MapCountVerifying()}, EventQueueCountSigning: {cache.EventQueueCountSigning()}, EventQueueCountVerifying: {cache.EventQueueCountVerifying()}");
+            int removed = cache.RemoveAllProviders();
+            Console.WriteLine($"====== After RemoveAllProviders, {removed} providers removed, ProviderCacheTest_EnsureNoLeakingTasks ===========>>>> TaskCount: {cache.TaskCount}, LinkedListCountSigning: {cache.LinkedListCountSigning()}, LinkedListCountVerifying: {cache.LinkedListCountVerifying()}, MapCountSigning: {cache.MapCountSigning()}, MapCountVerifying: {cache.MapCountVerifying()}, EventQueueCountSigning: {cache.EventQueueCountSigning()}, EventQueueCountVerifying: {cache.EventQueueCountVerifying()}");
 
             // create signing providers
             var signingProviders = CreateSigningProviders(cryptoProviderFactory);
@@ -1091,6 +1093,8 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             var cache = cryptoProviderFactory.CryptoProviderCache as InMemoryCryptoProviderCache;
 
             Console.WriteLine($"====== ProviderCacheTest_EnsureNoException_MultipleThreads ===========>>>> TaskCount: {cache.TaskCount}, LinkedListCountSigning: {cache.LinkedListCountSigning()}, LinkedListCountVerifying: {cache.LinkedListCountVerifying()}, MapCountSigning: {cache.MapCountSigning()}, MapCountVerifying: {cache.MapCountVerifying()}, EventQueueCountSigning: {cache.EventQueueCountSigning()}, EventQueueCountVerifying: {cache.EventQueueCountVerifying()}");
+            int removed = cache.RemoveAllProviders();
+            Console.WriteLine($"====== After RemoveAllProviders, {removed} providers removed, ProviderCacheTest_EnsureNoException_MultipleThreads ===========>>>> TaskCount: {cache.TaskCount}, LinkedListCountSigning: {cache.LinkedListCountSigning()}, LinkedListCountVerifying: {cache.LinkedListCountVerifying()}, MapCountSigning: {cache.MapCountSigning()}, MapCountVerifying: {cache.MapCountVerifying()}, EventQueueCountSigning: {cache.EventQueueCountSigning()}, EventQueueCountVerifying: {cache.EventQueueCountVerifying()}");
 
             int count = 5;
             List<Thread> signingThreads = new List<Thread>(count);

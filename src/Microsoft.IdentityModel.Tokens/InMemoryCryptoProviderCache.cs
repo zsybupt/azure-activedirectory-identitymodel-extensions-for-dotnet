@@ -26,7 +26,9 @@
 //------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.IdentityModel.Logging;
 
@@ -237,6 +239,40 @@ namespace Microsoft.IdentityModel.Tokens
                 LogHelper.LogWarning(LogHelper.FormatInvariant(LogMessages.IDX10699, cacheKey, ex));
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Get all signing providers.
+        /// </summary>
+        /// <returns></returns>
+        public int RemoveAllProviders()
+        {
+            int count = 0;
+
+            var map = _signingSignatureProviders.Map;
+            var linkedlist = _signingSignatureProviders.LinkedList;
+            foreach (var entry in map)
+            {
+                var lru = linkedlist.Last;
+                if (map.TryRemove(lru.Value.Key, out var cacheItem))
+                    OnSignatureProviderRemovedFromCache(cacheItem.Value);
+
+                linkedlist.Remove(lru);
+                count++;
+            }
+
+            linkedlist = _verifyingSignatureProviders.LinkedList;
+            foreach (KeyValuePair<string, LRUCacheItem<string, SignatureProvider>> entry in map)
+            {
+                LinkedListNode<LRUCacheItem<string, SignatureProvider>> lru = linkedlist.Last;
+                if (map.TryRemove(lru.Value.Key, out var cacheItem))
+                    OnSignatureProviderRemovedFromCache(cacheItem.Value);
+
+                linkedlist.Remove(lru);
+                count++;
+            }
+
+            return count;
         }
 
         /// <summary>

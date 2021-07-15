@@ -432,6 +432,8 @@ namespace Microsoft.IdentityModel.Tokens
         /// </summary>
         internal long LinkedListCount => _doubleLinkedList.Count;
 
+        internal ConcurrentDictionary<TKey, LRUCacheItem<TKey, TValue>> Map => _map;
+
         /// <summary>
         /// FOR TESTING ONLY.
         /// </summary>
