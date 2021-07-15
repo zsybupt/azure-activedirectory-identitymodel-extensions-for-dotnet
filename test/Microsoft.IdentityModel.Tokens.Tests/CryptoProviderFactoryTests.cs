@@ -1129,7 +1129,11 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             for (int i = 0; i < secondsTimeout; i++)
             {
                 if (cache.TaskCount > 0)
+                {
+                    Console.WriteLine($"TaskCount: {cache.TaskCount}, LinkedListCountSigning: {cache.LinkedListCountSigning()}, LinkedListCountVerifying: {cache.LinkedListCountVerifying()}, MapCountSigning: {cache.MapCountSigning()}, MapCountVerifying: {cache.MapCountVerifying()}, EventQueueCountSigning: {cache.EventQueueCountSigning()}, EventQueueCountVerifying: {cache.EventQueueCountVerifying()}");
+                    
                     Thread.Sleep(1000);
+                }
             }
         }
 
