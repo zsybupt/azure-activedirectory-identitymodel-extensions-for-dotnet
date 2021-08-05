@@ -988,24 +988,120 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             {
                 if (tokenParts.Length == JwtConstants.JweSegmentCount)
                 {
-                    var jwtToken = new JsonWebToken(token);
-                    var decryptedJwt = DecryptToken(jwtToken, validationParameters);
-                    var innerToken = ValidateSignature(decryptedJwt, validationParameters);
-                    jwtToken.InnerToken = innerToken;
-                    var innerTokenValidationResult = ValidateTokenPayload(innerToken, validationParameters);
-                    return new TokenValidationResult
+                    JsonWebToken jwtToken = null;
+                    string decryptedJwt = null;
+                    jwtToken = new JsonWebToken(token);
+                    decryptedJwt = DecryptToken(jwtToken, validationParameters);
+                    var tokenValidationResult = ValidateJWEWithConfig(jwtToken, decryptedJwt, validationParameters);
+
+                    if (tokenValidationResult.IsValid)
                     {
-                        SecurityToken = jwtToken,
-                        ClaimsIdentity = innerTokenValidationResult.ClaimsIdentity,
-                        IsValid = true,
-                        TokenType = innerTokenValidationResult.TokenType
-                    };
+                        // set current configuration as LKG if it exists
+                        if (validationParameters.Configuration != null && validationParameters.Configuration != validationParameters.ConfigurationManager.LKGConfiguration)
+                            validationParameters.ConfigurationManager.LKGConfiguration = validationParameters.Configuration;
+
+                        return tokenValidationResult;
+                    }
+                    else if (tokenValidationResult.Exception.GetType().Equals(typeof(SecurityTokenInvalidConfigurationException)))
+                    {
+                        if (validationParameters.ConfigurationManager.LKGConfiguration != null && !(validationParameters.ConfigurationManager.LKGConfiguration == validationParameters.Configuration))
+                        {
+                            validationParameters.Configuration = validationParameters.ConfigurationManager.LKGConfiguration;
+                            tokenValidationResult = ValidateJWEWithConfig(jwtToken, decryptedJwt, validationParameters);
+
+                            if (tokenValidationResult.IsValid) return tokenValidationResult;
+                        }
+
+                        // if we were still unable to validate, attempt to refresh the configuration and validate using it
+                        validationParameters.ConfigurationManager.RequestRefresh();
+                        validationParameters.Configuration = validationParameters.ConfigurationManager.GetBaseConfigurationAsync(CancellationToken.None).Result;
+                        return ValidateJWEWithConfig(jwtToken, decryptedJwt, validationParameters);
+                    }
+
+                    return tokenValidationResult;
                 }
                 else
                 {
-                    var jsonWebToken = ValidateSignature(token, validationParameters);
-                    return ValidateTokenPayload(jsonWebToken, validationParameters);
+                    var tokenValidationResult = ValidateJWSWithConfig(token, validationParameters);
+                    // set current configuration as LKG if it exists
+                    if (validationParameters.Configuration != null && validationParameters.Configuration != validationParameters.ConfigurationManager.LKGConfiguration)
+                        validationParameters.ConfigurationManager.LKGConfiguration = validationParameters.Configuration;
+
+                    if (tokenValidationResult.IsValid)
+                    {
+                        // set current configuration as LKG if it exists
+                        if (validationParameters.Configuration != null && validationParameters.Configuration != validationParameters.ConfigurationManager.LKGConfiguration)
+                            validationParameters.ConfigurationManager.LKGConfiguration = validationParameters.Configuration;
+
+                        return tokenValidationResult;
+                    }
+                    else if (tokenValidationResult.Exception.GetType().Equals(typeof(SecurityTokenInvalidConfigurationException)))
+                    {
+                        if (validationParameters.ConfigurationManager.LKGConfiguration != null && !(validationParameters.ConfigurationManager.LKGConfiguration == validationParameters.Configuration))
+                        {
+                            validationParameters.Configuration = validationParameters.ConfigurationManager.LKGConfiguration;
+                            tokenValidationResult = ValidateJWSWithConfig(token, validationParameters);
+
+                            if (tokenValidationResult.IsValid) return tokenValidationResult;
+                        }
+
+                        // if we were still unable to validate, attempt to refresh the configuration and validate using it
+                        validationParameters.ConfigurationManager.RequestRefresh();
+                        var lastConfig = validationParameters.Configuration;
+                        validationParameters.Configuration = validationParameters.ConfigurationManager.GetBaseConfigurationAsync(CancellationToken.None).Result;
+
+                        // only try to re-validate using the newly obtained config if it doesn't reference equal the previously used config
+                        if (lastConfig != validationParameters.Configuration) return ValidateJWSWithConfig(token, validationParameters);
+                    }
+
+                    return tokenValidationResult;
                 }
+            }
+            catch (Exception ex)
+            {
+                return new TokenValidationResult
+                {
+                    Exception = ex,
+                    IsValid = false
+                };
+            }
+            
+        }
+
+        private TokenValidationResult ValidateJWSWithConfig(string token, TokenValidationParameters validationParameters)
+        {
+            try
+            {
+                var jsonWebToken = ValidateSignature(token, validationParameters);
+                return ValidateTokenPayload(jsonWebToken, validationParameters);
+
+            }
+            catch (Exception ex)
+            {
+
+                return new TokenValidationResult
+                {
+                    Exception = ex,
+                    IsValid = false
+                };
+            }
+        }
+
+        private TokenValidationResult ValidateJWEWithConfig(JsonWebToken jwtToken, string decryptedJwt, TokenValidationParameters validationParameters)
+        {
+            try
+            {
+                var innerToken = ValidateSignature(decryptedJwt, validationParameters);
+                jwtToken.InnerToken = innerToken;
+                var innerTokenValidationResult = ValidateTokenPayload(innerToken, validationParameters);
+
+                return new TokenValidationResult
+                {
+                    SecurityToken = jwtToken,
+                    ClaimsIdentity = innerTokenValidationResult.ClaimsIdentity,
+                    IsValid = true,
+                    TokenType = innerTokenValidationResult.TokenType
+                };
             }
             catch (Exception ex)
             {
@@ -1100,7 +1196,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             }
             else
             {
-                var key = JwtTokenUtilities.ResolveTokenSigningKey(jwtToken.Kid, jwtToken.X5t, validationParameters);
+                SecurityKey key = JwtTokenUtilities.ResolveTokenSigningKey(jwtToken.Kid, jwtToken.X5t, validationParameters);
                 if (key != null)
                 {
                     kidMatched = true;
@@ -1159,6 +1255,10 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 }
 
             }
+
+            // Throw an exception that indicates a need to fall back to the LKG ONLY and/or refresh configuration ONLY if we are using the configuration for token validation.
+            if (validationParameters.ConfigurationManager != null && validationParameters.Configuration != null)
+                throw LogHelper.LogExceptionMessage(new SecurityTokenInvalidConfigurationException());
 
             if (kidExists)
             {
