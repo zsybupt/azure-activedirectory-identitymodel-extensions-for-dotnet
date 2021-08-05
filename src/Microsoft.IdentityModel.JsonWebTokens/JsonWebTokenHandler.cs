@@ -31,6 +31,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Microsoft.IdentityModel.Json;
 using Microsoft.IdentityModel.Json.Linq;
 using Microsoft.IdentityModel.Logging;
@@ -959,6 +960,30 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (tokenParts.Length != JwtConstants.JwsSegmentCount && tokenParts.Length != JwtConstants.JweSegmentCount)
                 return new TokenValidationResult { Exception = LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14111, token))), IsValid = false };
 
+            if (validationParameters.ConfigurationManager != null)
+            {
+                try
+                {
+                    validationParameters.Configuration = validationParameters.ConfigurationManager.GetBaseConfigurationAsync(CancellationToken.None).Result;
+                }
+                catch (AggregateException ex)
+                {
+                    // If either a signing key or a valid issuer was not provided through the TVP, we want to stop processing on configuration retrieval failure.
+                    // Otherwise, we should keep going with validation.
+                    if ((string.IsNullOrWhiteSpace(validationParameters.ValidIssuer) && validationParameters.ValidIssuers == null)
+                        || (validationParameters.IssuerSigningKey == null && validationParameters.IssuerSigningKeys == null))
+                    {
+                        return new TokenValidationResult
+                        {
+                            Exception = ex,
+                            IsValid = false
+                        };
+                    }
+
+                    LogHelper.LogInformation(LogHelper.FormatInvariant(TokenLogMessages.IDX10261, validationParameters.ConfigurationManager.MetadataAddress));
+                }
+            }
+
             try
             {
                 if (tokenParts.Length == JwtConstants.JweSegmentCount)
@@ -1075,7 +1100,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             }
             else
             {
-                var key = JwtTokenUtilities.ResolveTokenSigningKey(jwtToken.Kid, jwtToken.X5t, validationParameters);
+                SecurityKey key = JwtTokenUtilities.ResolveTokenSigningKey(jwtToken.Kid, jwtToken.X5t, validationParameters);
                 if (key != null)
                 {
                     kidMatched = true;

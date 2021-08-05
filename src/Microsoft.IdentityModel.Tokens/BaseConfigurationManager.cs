@@ -77,6 +77,11 @@ namespace Microsoft.IdentityModel.Tokens
         public BaseConfiguration LKGConfiguration { get; set; }
 
         /// <summary>
+        /// The metadata address to retrieve the configuration from.
+        /// </summary>
+        public string MetadataAddress { get; set; }
+
+        /// <summary>
         /// 5 minutes is the minimum value for automatic refresh. <see cref="AutomaticRefreshInterval"/> can not be set less than this value.
         /// </summary>
         public static readonly TimeSpan MinimumAutomaticRefreshInterval = new TimeSpan(0, 0, 5, 0);

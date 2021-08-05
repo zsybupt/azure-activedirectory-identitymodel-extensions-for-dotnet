@@ -30,6 +30,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Security.Claims;
+using System.Threading;
 using Microsoft.IdentityModel.Json.Linq;
 using Microsoft.IdentityModel.Logging;
 using TokenLogMessages = Microsoft.IdentityModel.Tokens.LogMessages;
@@ -149,6 +150,10 @@ namespace Microsoft.IdentityModel.Tokens
 
             if (validationParameters.IssuerSigningKeys != null)
                 foreach (SecurityKey key in validationParameters.IssuerSigningKeys)
+                    yield return key;
+
+            if (validationParameters.Configuration?.SigningKeys != null)
+                foreach (SecurityKey key in validationParameters.Configuration.SigningKeys)
                     yield return key;
         }
 
