@@ -45,7 +45,6 @@ namespace Microsoft.IdentityModel.Protocols
         private DateTimeOffset _syncAfter = DateTimeOffset.MinValue;
         private DateTimeOffset _lastRefresh = DateTimeOffset.MinValue;
         private bool _isFirstRefreshRequest = true;
-        private DateTimeOffset _lkgExpiration = DateTimeOffset.MinValue;
 
         private readonly SemaphoreSlim _refreshLock;
         private readonly IDocumentRetriever _docRetriever;
