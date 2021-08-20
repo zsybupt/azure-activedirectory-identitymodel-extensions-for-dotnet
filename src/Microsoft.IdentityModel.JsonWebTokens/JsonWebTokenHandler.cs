@@ -584,7 +584,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
                     identity.AddClaim(claim);
                 }
-
             }
 
             return identity;
@@ -1032,10 +1031,11 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             Validators.ValidateIssuerSecurityKey(jsonWebToken.SigningKey, jsonWebToken, validationParameters);
             var type = Validators.ValidateTokenType(jsonWebToken.Typ, jsonWebToken, validationParameters);
 
-            return new TokenValidationResult
+            // TODO - need to create ClaimsIdentity specifically for actor.
+            return new TokenValidationResult(jsonWebToken, validationParameters.Clone(), issuer)
             {
                 SecurityToken = jsonWebToken,
-                ClaimsIdentity = CreateClaimsIdentity(jsonWebToken, validationParameters, issuer),
+                Issuer = issuer,
                 IsValid = true,
                 TokenType = type
             };

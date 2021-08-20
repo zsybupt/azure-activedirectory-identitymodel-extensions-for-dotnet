@@ -288,6 +288,23 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
             IdentityComparer.AreEqual(42, integer, context);
             IdentityComparer.AreEqual(true, success, context);
 
+            success = token.TryGetPayloadValue("nill", out bool b);
+            IdentityComparer.AreEqual(false, success, context);
+
+            success = token.TryGetPayloadValue("nill", out bool? bb);
+            if (bb != null)
+                context.Diffs.Add("bb != null");
+
+            if (!success)
+                context.Diffs.Add("bb (success) != true");
+
+            success = token.TryGetPayloadValue("nill", out ClaimsIdentity ci);
+            if (ci != null)
+                context.AddDiff("ClaimsIdentity != null");
+
+            if (!success)
+                context.AddDiff("ClaimsIdentity not successful");
+
             success = token.TryGetPayloadValue("nill", out object nill);
             IdentityComparer.AreEqual(nill, null, context);
             IdentityComparer.AreEqual(true, success, context);

@@ -23,6 +23,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         IList<Claim> _claims;
 
         private static Type _typeofDateTime = typeof(DateTime);
+
         public JsonClaimSet()
         {
             RootElement = new JsonElement();
@@ -38,9 +39,9 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             RootElement = JsonDocument.Parse(json).RootElement;
         }
 
-        public bool TryGetValue(string claimName, out JsonElement json)
+        public bool TryGetValue(string property, out JsonElement json)
         {
-            return RootElement.TryGetProperty(claimName, out json);
+            return RootElement.TryGetProperty(property, out json);
         }
 
         public JsonElement RootElement { get; }
@@ -228,51 +229,57 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             return GetValueInternal<T>(key, true, out bool _);
         }
 
+        /// <summary>
+        /// The goal here is return types that are expected in a JWT token.
+        /// The 5 basic types: number, string, true / false, nil, array (of basic types).
+        /// This is not a general purpose translation layer for complex types.
+        /// For that we would need to provide a way to hook a JsonConverter to for complex types.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="key"></param>
+        /// <param name="throwEx"></param>
+        /// <param name="found"></param>
+        /// <returns></returns>
         private T GetValueInternal<T>(string key, bool throwEx, out bool found)
         {
-            found = false;
-            T value = default;
-            if (!RootElement.TryGetProperty(key, out JsonElement jsonElement))
+            // TODO - found may not be the right logic here as the property can be found, but transform failed.
+            found = RootElement.TryGetProperty(key, out JsonElement jsonElement);
+            if (!found)
             {
                 if (throwEx)
                     throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14304, key)));
                 else
-                    return value;
+                    return default;
             }
 
-            found = true;
+            if (typeof(T) == typeof(JsonElement))
+                return (T)(object)jsonElement;
+
             try
             {
                 if (jsonElement.ValueKind == JsonValueKind.Null)
                 {
-                    if (Nullable.GetUnderlyingType(typeof(T)) != null)
-                        value = (T)(object)null;
+                    if (typeof(T) == typeof(object) || typeof(T).IsClass || Nullable.GetUnderlyingType(typeof(T)) != null)
+                        return (T)(object)null;
                     else
                     {
                         found = false;
-                        value = default;
+                        return default;
                     }
                 }
                 else
                 {
                     if (typeof(T) == typeof(JObject))
-                    {
-                        string json = jsonElement.ToString();
-                        return (T)(object)(JObject.Parse(json));
-                    }
+                        return (T)(object)(JObject.Parse(jsonElement.ToString()));
 
                     if (typeof(T) == typeof(JArray))
-                    {
-                        string json = jsonElement.ToString();
-                        return (T)(object)(JArray.Parse(json));
-                    }
+                        return (T)(object)(JArray.Parse(jsonElement.ToString()));
 
                     // need to adjust for object as value will be 
                     if (typeof(T) == typeof(object))
-                    {
-                        value = (T)CreateObjectFromJsonElement(jsonElement);
-                    }
-                    else if (typeof(T) == typeof(object[]))
+                        return (T)CreateObjectFromJsonElement(jsonElement);
+
+                    if (typeof(T) == typeof(object[]))
                     {
                         if (jsonElement.ValueKind == JsonValueKind.Array)
                         {
@@ -296,21 +303,32 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                             return (T)(object)objects;
                         }
                     }
-                    else if (jsonElement.ValueKind == JsonValueKind.String)
+
+                    if (typeof(T) == typeof(string))
+                        return (T)(jsonElement.ToString() as object);
+
+                    if (jsonElement.ValueKind == JsonValueKind.String)
                     {
-                        if (typeof(T) == _typeofDateTime && DateTime.TryParse(jsonElement.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime dateTime))
-                            value = (T)(object)dateTime;
-                        else
-                            value = System.Text.Json.JsonSerializer.Deserialize<T>(jsonElement.GetRawText());
+                        if (typeof(T) == typeof(long) && long.TryParse(jsonElement.ToString(), out long lresult))
+                            return (T)(object)lresult;
+
+                        if (typeof(T) == typeof(int) && int.TryParse(jsonElement.ToString(), out int iresult))
+                            return (T)(object)iresult;
+
+                        if (typeof(T) == _typeofDateTime)
+                            if (DateTime.TryParse(jsonElement.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime dateTime))
+                                return (T)(object)dateTime;
+                            else
+                                return System.Text.Json.JsonSerializer.Deserialize<T>(jsonElement.GetRawText());
+
+                        if (typeof(T) == typeof(double) && double.TryParse(jsonElement.ToString(), out double dresult))
+                            return (T)(object)dresult;
+
+                        if (typeof(T) == typeof(float) && float.TryParse(jsonElement.ToString(), out float fresult))
+                            return (T)(object)fresult;
                     }
-                    else if (typeof(T) == typeof(string))
-                    {
-                        value = (T)(jsonElement.ToString() as object);
-                    }
-                    else
-                    {
-                        value = System.Text.Json.JsonSerializer.Deserialize<T>(jsonElement.GetRawText());
-                    }
+
+                    return System.Text.Json.JsonSerializer.Deserialize<T>(jsonElement.GetRawText());
                 }
             }
             catch (Exception ex)
@@ -320,7 +338,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                     throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14305, key, typeof(T), jsonElement.ValueKind, jsonElement.GetRawText()), ex));
             }
 
-            return value;
+            return default;
         }
 
         internal bool TryGetClaim(string key, string issuer, out Claim claim)
@@ -335,6 +353,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             return true;
         }
 
+        /// <summary>
+        /// The return types that are expected in a JWT token.
+        /// The 5 basic types: number, string, true / false, nil, array (of basic types).
+        /// This is not a general purpose translation layer for complex types.
+        /// For that we would need to provide a way to hook a JsonConverter to for complex types.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
         public bool TryGetValue<T>(string key, out T value)
         {
             value = GetValueInternal<T>(key, false, out bool found);
@@ -362,7 +390,8 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 if (jsonElement.TryGetDecimal(out decimal retValDecimal))
                     return (long)retValDecimal;
             }
-            else if (jsonElement.ValueKind == JsonValueKind.String)
+
+            if (jsonElement.ValueKind == JsonValueKind.String)
             {
                 string str = jsonElement.GetString();
                 if (long.TryParse(str, out long resultLong))

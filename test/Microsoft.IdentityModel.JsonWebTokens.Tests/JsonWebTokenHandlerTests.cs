@@ -71,6 +71,10 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
         public void ValidateTokenValidationResult()
         {
             TestUtilities.WriteHeader($"{this}.ValidateTokenValidationResult");
+            CompareContext context = new CompareContext
+            {
+                Title = "ValidateTokenValidationResult"
+            };
 
             var tokenHandler = new JsonWebTokenHandler();
             var tokenDescriptor = new SecurityTokenDescriptor
@@ -91,7 +95,15 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
             };
 
             var tokenValidationResult = tokenHandler.ValidateToken(accessToken, tokenValidationParameters);
-            Assert.Equal(tokenValidationResult.Claims, TokenUtilities.CreateDictionaryFromClaims(tokenValidationResult.ClaimsIdentity.Claims));
+            ClaimsIdentity claimsIdentity = tokenValidationResult.ClaimsIdentity;
+            claimsIdentity = tokenValidationResult.ClaimsIdentity;
+            IDictionary<string, object> tvrClaims = tokenValidationResult.Claims;
+            tvrClaims = tokenValidationResult.Claims;
+            IEnumerable<Claim> claims = claimsIdentity.Claims;
+            claims = claimsIdentity.Claims;
+
+            IdentityComparer.AreEqual(tvrClaims, TokenUtilities.CreateDictionaryFromClaims(claims), context);
+            TestUtilities.AssertFailIfErrors(context);
         }
 
         [Theory, MemberData(nameof(SegmentTheoryData))]

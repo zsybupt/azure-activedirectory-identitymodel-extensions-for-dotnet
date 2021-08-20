@@ -28,6 +28,7 @@
 using System;
 using System.Collections.Generic;
 using System.Security.Claims;
+using Microsoft.IdentityModel.Logging;
 
 namespace Microsoft.IdentityModel.Tokens
 {
@@ -36,7 +37,31 @@ namespace Microsoft.IdentityModel.Tokens
     /// </summary>
     public class TokenValidationResult
     {
-        private Lazy<IDictionary<string, object>> _claims => new Lazy<IDictionary<string, object>>(() => TokenUtilities.CreateDictionaryFromClaims(ClaimsIdentity?.Claims));
+        private Lazy<IDictionary<string, object>> _claims;
+        private Lazy<ClaimsIdentity> _claimsIdentity;
+
+        private IClaimProvider _claimProvider;
+        private ClaimsIdentity _ciSet;
+        private bool _wasClaimsIdentitySet;
+        private TokenValidationParameters _validationParameters;
+
+        /// <summary>
+        ///
+        /// </summary>
+        public TokenValidationResult()
+        {
+            _claims = new Lazy<IDictionary<string, object>>(() => TokenUtilities.CreateDictionaryFromClaims(ClaimsIdentity?.Claims));
+        }
+
+        internal TokenValidationResult(SecurityToken securityToken, TokenValidationParameters validationParameters, string issuer)
+        {
+            _validationParameters = validationParameters;
+            _claimProvider = securityToken as IClaimProvider;
+            Issuer = issuer;
+            SecurityToken = securityToken;
+             _claimsIdentity = new Lazy<ClaimsIdentity>(() => ClaimsIdentityFactory());
+            _claims = new Lazy<IDictionary<string, object>>(() => TokenUtilities.CreateDictionaryFromClaims(ClaimsIdentity?.Claims));
+        }
 
         /// <summary>
         /// The <see cref="Dictionary{String, Object}"/> created from the validated security token.
@@ -52,8 +77,68 @@ namespace Microsoft.IdentityModel.Tokens
         /// <summary>
         /// The <see cref="ClaimsIdentity"/> created from the validated security token.
         /// </summary>
-        public ClaimsIdentity ClaimsIdentity { get; set; }
+        public ClaimsIdentity ClaimsIdentity
+        {
+            get
+            {
+                if (_wasClaimsIdentitySet)
+                    return _ciSet;
 
+                if (_claimProvider != null)
+                    return _claimsIdentity.Value;
+
+                return null;
+            }
+
+            set
+            {
+                _ciSet = value;
+                _wasClaimsIdentitySet = true;
+            }
+        }
+
+        private ClaimsIdentity ClaimsIdentityFactory()
+        {
+            ClaimsIdentity claimsIdentity = _validationParameters.CreateClaimsIdentity(SecurityToken, Issuer);
+            foreach (Claim jwtClaim in _claimProvider.Claims)
+            {
+                string claimType = jwtClaim.Type;
+                // TODO this is not the actor token, need to create the SecurityToken representing actor.
+                if (claimType == ClaimTypes.Actor)
+                {
+                    if (claimsIdentity.Actor != null)
+                        throw LogHelper.LogExceptionMessage(new InvalidOperationException(LogHelper.FormatInvariant("LogMessages.IDX14112, JwtRegisteredClaimNames.Actort, jwtClaim.Value")));
+
+                    ClaimsIdentity actorClaimsIdentity = _validationParameters.CreateClaimsIdentity(SecurityToken, Issuer);
+                    foreach (Claim actClaim in _claimProvider.ActorClaims)
+                    {
+                        AddClaim(claimsIdentity, actClaim);
+                    }
+
+                    claimsIdentity.Actor = actorClaimsIdentity;
+                }
+
+                AddClaim(claimsIdentity, jwtClaim);
+            }
+
+            return claimsIdentity;
+        }
+
+        private void AddClaim(ClaimsIdentity ci, Claim claim)
+        {
+            if (claim.Properties.Count == 0)
+            {
+                ci.AddClaim(new Claim(claim.Type, claim.Value, claim.ValueType, Issuer, Issuer, ci));
+            }
+            else
+            {
+                Claim c = new Claim(claim.Type, claim.Value, claim.ValueType, Issuer, Issuer, ci);
+                foreach (var kv in claim.Properties)
+                    c.Properties[kv.Key] = kv.Value;
+
+                ci.AddClaim(c);
+            }
+        }
         /// <summary>
         /// Gets or sets the <see cref="Exception"/> that occurred during validation.
         /// </summary>
