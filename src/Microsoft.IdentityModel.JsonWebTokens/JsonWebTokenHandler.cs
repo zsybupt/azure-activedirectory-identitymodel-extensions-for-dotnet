@@ -1098,7 +1098,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 {
                     try
                     {
-                        if (ValidateSignature(jwtToken._hpUtf8Bytes, jwtToken._sBytes, key, jwtToken.Alg, jwtToken, validationParameters))
+                        if (ValidateSignature(jwtToken.MessageBytes, jwtToken.SignatureBytes, key, jwtToken.Alg, jwtToken, validationParameters))
                         {
                             LogHelper.LogInformation(TokenLogMessages.IDX10242, jwtToken.EncodedToken);
                             jwtToken.SigningKey = key;

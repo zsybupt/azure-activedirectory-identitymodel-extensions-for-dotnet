@@ -46,16 +46,12 @@ namespace Microsoft.IdentityModel.JsonWebTokens
     /// </summary>
     public class JsonWebToken : SecurityToken, IClaimProvider
     {
-        internal JsonClaimSet PayloadClaimSet;
-        internal JsonClaimSet HeaderClaimSet;
-
         internal bool HasSignature { get; set; }
-
-        internal char[] _hChars;
-        internal byte[] _hpUtf8Bytes;
-        internal char[] _pChars;
-        internal byte[] _sBytes;
-        internal char[] _sChars;
+        private char[] _hChars;
+        private byte[] _messageBytes;
+        private char[] _pChars;
+        private  byte[] _signatureBytes;
+        private char[] _sChars;
 
         private Lazy<string> _act;
         private Lazy<string> _alg;
@@ -527,6 +523,17 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         }
 
         /// <summary>
+        ///
+        /// </summary>
+        internal JsonClaimSet PayloadClaimSet { get; set; }
+
+        /// <summary>
+        ///
+        /// </summary>
+        internal JsonClaimSet HeaderClaimSet { get; set; }
+
+
+        /// <summary>
         /// Not implemented.
         /// </summary>
         public override SecurityKey SecurityKey { get; }
@@ -692,6 +699,13 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         internal int NumberOfSegments { get; private set; }
 
+        /// <summary>
+        ///
+        /// </summary>
+#pragma warning disable CA1819 // Properties should not return arrays
+        public byte[] MessageBytes => _messageBytes;
+#pragma warning restore CA1819 // Properties should not return arrays
+
         private void ReadToken(string encodedJson)
         {
             List<int> dots = new List<int>();
@@ -711,18 +725,18 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 {
                     HasSignature = false;
                     // TODO - have fixed value for this.
-                    _sBytes = Base64UrlEncoder.UnsafeDecode(string.Empty.ToCharArray());
+                    _signatureBytes = Base64UrlEncoder.UnsafeDecode(string.Empty.ToCharArray());
                 }
                 else
                 {
                     HasSignature = true;
                     _sChars = encodedJson.ToCharArray(dots[1] + 1, encodedJson.Length - dots[1] - 1);
-                    _sBytes = Base64UrlEncoder.UnsafeDecode(_sChars);
+                    _signatureBytes = Base64UrlEncoder.UnsafeDecode(_sChars);
                 }
 
                 _hChars = encodedJson.ToCharArray(0, dots[0]);
                 _pChars = encodedJson.ToCharArray(dots[0] + 1, dots[1] - dots[0] - 1);
-                _hpUtf8Bytes = Encoding.UTF8.GetBytes(encodedJson.ToCharArray(0, dots[1]));
+                _messageBytes = Encoding.UTF8.GetBytes(encodedJson.ToCharArray(0, dots[1]));
                 try
                 {
                     HeaderClaimSet = new JsonClaimSet(Base64UrlEncoder.UnsafeDecode(_hChars));
@@ -768,6 +782,13 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
             NumberOfSegments = dots.Count + 1;
         }
+
+        /// <summary>
+        ///
+        /// </summary>
+#pragma warning disable CA1819 // Properties should not return arrays
+        public byte[] SignatureBytes => _signatureBytes;
+#pragma warning restore CA1819 // Properties should not return arrays
 
         /// <summary>
         /// Try to get a <see cref="Claim"/> representing the { key, 'value' } pair corresponding to the provided <paramref name="key"/>.

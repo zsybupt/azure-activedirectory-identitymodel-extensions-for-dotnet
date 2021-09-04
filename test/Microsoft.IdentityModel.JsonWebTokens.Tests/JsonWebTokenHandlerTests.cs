@@ -1294,6 +1294,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                     IdentityComparer.AreEqual(jwsTokenFromString.Kid, x509SecurityKey.KeyId, context);
                 }
 
+                context.PropertiesToIgnoreWhenComparing = theoryData.PropertiesToIgnoreWhenComparing;
                 IdentityComparer.AreEqual(jwsTokenFromSecurityTokenDescriptor, jwsTokenFromString, context);
                 theoryData.ExpectedException.ProcessNoException(context);
             }
@@ -1635,7 +1636,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                         //RsaPss produces different signatures
                         PropertiesToIgnoreWhenComparing = new Dictionary<Type, List<string>>
                         {
-                            { typeof(JsonWebToken), new List<string> { "EncodedToken", "EncodedSignature" } },
+                            { typeof(JsonWebToken), new List<string> { "EncodedToken", "EncodedSignature", "SignatureBytes" } },
                         },
                         TokenDescriptor =  new SecurityTokenDescriptor
                         {
