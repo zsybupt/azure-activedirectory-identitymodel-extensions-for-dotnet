@@ -8,13 +8,12 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
+using Microsoft.IdentityModel.Json;
+using Microsoft.IdentityModel.Json.Linq;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Microsoft.IdentityModel.Json.Linq;
-using Microsoft.IdentityModel.Json;
-
-using System.Text.Json;
 
 namespace Microsoft.IdentityModel.JsonWebTokens
 {

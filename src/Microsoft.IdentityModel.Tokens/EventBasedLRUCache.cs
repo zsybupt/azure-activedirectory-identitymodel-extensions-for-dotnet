@@ -107,6 +107,8 @@ namespace Microsoft.IdentityModel.Tokens
         // for testing purpose only to verify the task count
         private int _taskCount = 0;
 
+        private bool _useLRU;
+
         /// <summary>
         /// Constructor.
         /// </summary>
@@ -115,12 +117,14 @@ namespace Microsoft.IdentityModel.Tokens
         /// <param name="comparer">The equality comparison implementation to be used by the map when comparing keys.</param>
         /// <param name="removeExpiredValues">Whether or not to remove expired items.</param>
         /// <param name="cleanUpIntervalInSeconds">The period to wait to remove expired items, in milliseconds.</param>
+        /// <param name="useLRU"></param>
         internal EventBasedLRUCache(
             int capacity,
             TaskCreationOptions options = TaskCreationOptions.None,
             IEqualityComparer<TKey> comparer = null,
             bool removeExpiredValues = false,
-            int cleanUpIntervalInSeconds = 300)
+            int cleanUpIntervalInSeconds = 300,
+            bool useLRU = false)
         {
             _capacity = capacity > 0 ? capacity : throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(capacity)));
             _options = options;
@@ -128,6 +132,7 @@ namespace Microsoft.IdentityModel.Tokens
             _cleanUpIntervalInMilliSeconds = 1000 * cleanUpIntervalInSeconds;
             _removeExpiredValues = removeExpiredValues;
             _eventQueueTaskStopTime = DateTime.UtcNow;
+            _useLRU = useLRU;
 
             if (_removeExpiredValues)
                 _timer = new Timer(RemoveExpiredValuesPeriodically, null, _cleanUpIntervalInMilliSeconds, _cleanUpIntervalInMilliSeconds);
@@ -212,7 +217,26 @@ namespace Microsoft.IdentityModel.Tokens
 
         public void SetValue(TKey key, TValue value)
         {
-            SetValue(key, value, DateTime.MaxValue);
+            if (_map.TryGetValue(key, out LRUCacheItem<TKey, TValue> cacheItem))
+            {
+                cacheItem.Value = value;
+            }
+            else
+            {
+                // if cache is at _maxCapacityPercentage, trim it by _compactionPercentage
+                if ((double)_map.Count / _capacity >= _maxCapacityPercentage)
+                {
+                    _eventQueue.Enqueue(() =>
+                    {
+                        RemoveLRUs();
+                    });
+                }
+                // add the new node
+                _map[key] = new LRUCacheItem<TKey, TValue>(key, value);
+
+                // start the event queue task if it is not running
+                StartEventQueueTaskIfNotRunning();
+            }
         }
 
         public bool SetValue(TKey key, TValue value, DateTime expirationTime)
@@ -232,11 +256,14 @@ namespace Microsoft.IdentityModel.Tokens
             {
                 cacheItem.Value = value;
                 cacheItem.ExpirationTime = expirationTime;
-                _eventQueue.Enqueue(() =>
+                if (_useLRU)
                 {
-                    _doubleLinkedList.Remove(cacheItem);
-                    _doubleLinkedList.AddFirst(cacheItem);
-                });
+                    _eventQueue.Enqueue(() =>
+                    {
+                        _doubleLinkedList.Remove(cacheItem);
+                        _doubleLinkedList.AddFirst(cacheItem);
+                    });
+                }
             }
             else
             {
@@ -250,12 +277,16 @@ namespace Microsoft.IdentityModel.Tokens
                 }
                 // add the new node
                 var newCacheItem = new LRUCacheItem<TKey, TValue>(key, value, expirationTime);
-                _eventQueue.Enqueue(() =>
+                if (_useLRU)
                 {
-                    // Add a remove operation in case two threads are trying to add the same value. Only the second remove will succeed in this case.
-                    _doubleLinkedList.Remove(newCacheItem);
-                    _doubleLinkedList.AddFirst(newCacheItem);
-                });
+                    _eventQueue.Enqueue(() =>
+                    {
+                        // Add a remove operation in case two threads are trying to add the same value. Only the second remove will succeed in this case.
+                        _doubleLinkedList.Remove(newCacheItem);
+                        _doubleLinkedList.AddFirst(newCacheItem);
+                    });
+                }
+
                 _map[key] = newCacheItem;
 
                 // start the event queue task if it is not running
@@ -271,22 +302,23 @@ namespace Microsoft.IdentityModel.Tokens
             if (key == null)
                 throw LogHelper.LogArgumentNullException(nameof(key));
 
-            if (!_map.ContainsKey(key))
+            if (_map.TryGetValue(key, out var cacheItem))
             {
-                value = default;
-                return false;
+                if (_useLRU)
+                {
+                    _eventQueue.Enqueue(() =>
+                    {
+                        _doubleLinkedList.Remove(cacheItem);
+                        _doubleLinkedList.AddFirst(cacheItem);
+                    });
+                }
+
+                value = cacheItem.Value;
+                return true;
             }
 
-            // make sure node hasn't been removed by a different thread
-            if (_map.TryGetValue(key, out var cacheItem))
-                _eventQueue.Enqueue(() =>
-                {
-                    _doubleLinkedList.Remove(cacheItem);
-                    _doubleLinkedList.AddFirst(cacheItem);
-                });
-
-            value = cacheItem != null ? cacheItem.Value : default;
-            return cacheItem != null;
+            value = default;
+            return false;
         }
 
         /// Removes a particular key from the cache.
@@ -295,20 +327,14 @@ namespace Microsoft.IdentityModel.Tokens
             if (key == null)
                 throw LogHelper.LogArgumentNullException(nameof(key));
 
-            if (!_map.TryGetValue(key, out var cacheItem))
+            if (_map.TryRemove(key, out LRUCacheItem<TKey, TValue> cacheItem))
             {
-                value = default;
-                return false;
-            }
-
-            value = cacheItem.Value;
-            _eventQueue.Enqueue(() => RemoveItemFromLinkedList(cacheItem));
-            if (_map.TryRemove(key, out cacheItem))
-            {
-                OnItemRemoved?.Invoke(cacheItem.Value);
+                value = cacheItem.Value;
+                _eventQueue.Enqueue(() => RemoveItemFromLinkedList(cacheItem));
                 return true;
             }
 
+            value = default;
             return false;
         }
 
@@ -319,9 +345,9 @@ namespace Microsoft.IdentityModel.Tokens
         /// <param name="newCacheItem">the item to be removed</param>
         private void RemoveItemFromLinkedList(LRUCacheItem<TKey, TValue> newCacheItem)
         {
+            // cannot remove until refcount is 0;
             _doubleLinkedList.Remove(newCacheItem);
         }
-
 
         /// <summary>
         /// This is the delegate for the event queue task (and the timer to remove the expired items if _removeExpiredValues is true).
