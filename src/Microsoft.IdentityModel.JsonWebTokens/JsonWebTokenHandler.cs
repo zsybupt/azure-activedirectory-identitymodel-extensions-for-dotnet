@@ -964,7 +964,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             {
                 try
                 {
-                    validationParameters.Configuration = validationParameters.ConfigurationManager.GetBaseConfigurationAsync(CancellationToken.None).Result;
+                    validationParameters.Configuration = validationParameters.ConfigurationManager.GetBaseConfigurationAsync(CancellationToken.None).GetAwaiter().GetResult();
                 }
                 catch (AggregateException ex)
                 {
@@ -1100,7 +1100,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             }
             else
             {
-                SecurityKey key = JwtTokenUtilities.ResolveTokenSigningKey(jwtToken.Kid, jwtToken.X5t, validationParameters);
+                var key = JwtTokenUtilities.ResolveTokenSigningKey(jwtToken.Kid, jwtToken.X5t, validationParameters);
                 if (key != null)
                 {
                     kidMatched = true;
