@@ -139,6 +139,7 @@ namespace Microsoft.IdentityModel.Tokens
                 ci.AddClaim(c);
             }
         }
+
         /// <summary>
         /// Gets or sets the <see cref="Exception"/> that occurred during validation.
         /// </summary>

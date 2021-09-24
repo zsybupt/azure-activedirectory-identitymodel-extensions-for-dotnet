@@ -260,7 +260,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             return value;
         }
 
-
         public bool TryGetValue<T>(string key, out T value)
         {
             if (RootElement.TryGetValue(key, out var jTokenValue))

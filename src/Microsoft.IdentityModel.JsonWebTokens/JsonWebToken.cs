@@ -125,7 +125,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
             try
             {
-                HeaderClaimSet = new JsonClaimSet(header);
+                Header = new JsonClaimSet(header);
             }
             catch (Exception ex)
             {
@@ -134,7 +134,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
             try
             {
-                PayloadClaimSet = new JsonClaimSet(payload);
+                Payload = new JsonClaimSet(payload);
             }
             catch (Exception ex)
             {
@@ -176,7 +176,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         private string ActorFactory()
         {
-            return (InnerToken == null) ? PayloadClaimSet.GetStringValue(JwtRegisteredClaimNames.Actort) : InnerToken.PayloadClaimSet.GetStringValue(JwtRegisteredClaimNames.Actort);
+            return (InnerToken == null) ? Payload.GetStringValue(JwtRegisteredClaimNames.Actort) : InnerToken.Payload.GetStringValue(JwtRegisteredClaimNames.Actort);
         }
 
         /// <summary>
@@ -194,7 +194,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         private string AlgFactory()
         {
-            return HeaderClaimSet.GetStringValue(JwtHeaderParameterNames.Alg);
+            return Header.GetStringValue(JwtHeaderParameterNames.Alg);
         }
 
         /// <summary>
@@ -212,7 +212,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         private IEnumerable<string> AudiencesFactory()
         {
 #if NET45
-            if (PayloadClaimSet.TryGetValue(JwtRegisteredClaimNames.Aud, out JToken value))
+            if (Payload.TryGetValue(JwtRegisteredClaimNames.Aud, out JToken value))
             {
                 if (value.Type is JTokenType.String)
                     return new List<string> { value.ToObject<string>() };
@@ -220,7 +220,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                     return value.ToObject<List<string>>();
             }
 #else
-            if (PayloadClaimSet.TryGetValue(JwtRegisteredClaimNames.Aud, out JsonElement audiences))
+            if (Payload.TryGetValue(JwtRegisteredClaimNames.Aud, out JsonElement audiences))
             {
                 if (audiences.ValueKind == JsonValueKind.String)
                     return new List<string> { audiences.GetString() };
@@ -280,7 +280,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 if (InnerToken != null)
                     return InnerToken.Claims;
 
-                return PayloadClaimSet.Claims(Issuer ?? ClaimsIdentity.DefaultIssuer);
+                return Payload.Claims(Issuer ?? ClaimsIdentity.DefaultIssuer);
 
             }
         }
@@ -299,7 +299,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 if (InnerToken != null)
                     return InnerToken.Claims;
 
-                return PayloadClaimSet.Claims(Issuer ?? ClaimsIdentity.DefaultIssuer);
+                return Payload.Claims(Issuer ?? ClaimsIdentity.DefaultIssuer);
 
             }
         }
@@ -346,7 +346,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         private string CtyFactory()
         {
-            return HeaderClaimSet.GetStringValue(JwtHeaderParameterNames.Cty);
+            return Header.GetStringValue(JwtHeaderParameterNames.Cty);
         }
 
         /// <summary>
@@ -361,7 +361,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         private string EncFactory()
         {
-            return HeaderClaimSet.GetStringValue(JwtHeaderParameterNames.Enc);
+            return Header.GetStringValue(JwtHeaderParameterNames.Enc);
         }
 
         /// <summary>
@@ -426,7 +426,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         internal bool HasPayloadClaim(string claimName)
         {
-            return PayloadClaimSet.HasClaim(claimName);
+            return Payload.HasClaim(claimName);
         }
 
         /// <summary>
@@ -443,7 +443,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         private string IdFactory()
         {
-            return PayloadClaimSet.GetStringValue(JwtRegisteredClaimNames.Jti);
+            return Payload.GetStringValue(JwtRegisteredClaimNames.Jti);
         }
 
         /// <summary>
@@ -484,7 +484,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         private DateTime IatFactory()
         {
-            return PayloadClaimSet.GetDateTime(JwtRegisteredClaimNames.Iat);
+            return Payload.GetDateTime(JwtRegisteredClaimNames.Iat);
         }
 
         /// <summary>
@@ -501,7 +501,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         internal string IssuerFactory()
         {
-            return PayloadClaimSet.GetStringValue(JwtRegisteredClaimNames.Iss);
+            return Payload.GetStringValue(JwtRegisteredClaimNames.Iss);
         }
 
         /// <summary>
@@ -519,19 +519,18 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         private string KidFactory()
         {
-            return HeaderClaimSet.GetStringValue(JwtHeaderParameterNames.Kid);
+            return Header.GetStringValue(JwtHeaderParameterNames.Kid);
         }
 
         /// <summary>
         ///
         /// </summary>
-        internal JsonClaimSet PayloadClaimSet { get; set; }
+        internal JsonClaimSet Payload { get; set; }
 
         /// <summary>
         ///
         /// </summary>
-        internal JsonClaimSet HeaderClaimSet { get; set; }
-
+        internal JsonClaimSet Header { get; set; }
 
         /// <summary>
         /// Not implemented.
@@ -560,7 +559,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         private string SubFactory()
         {
-            return PayloadClaimSet.GetStringValue(JwtRegisteredClaimNames.Sub);
+            return Payload.GetStringValue(JwtRegisteredClaimNames.Sub);
         }
 
         /// <summary>
@@ -577,7 +576,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         private string TypFactory()
         {
-            return HeaderClaimSet.GetStringValue(JwtHeaderParameterNames.Typ);
+            return Header.GetStringValue(JwtHeaderParameterNames.Typ);
         }
 
         /// <summary>
@@ -594,7 +593,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         private string X5tFactory()
         {
-            return HeaderClaimSet.GetStringValue(JwtHeaderParameterNames.X5t);
+            return Header.GetStringValue(JwtHeaderParameterNames.X5t);
         }
 
         /// <summary>
@@ -611,7 +610,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         internal DateTime ValidFromFactory()
         {
-            return PayloadClaimSet.GetDateTime(JwtRegisteredClaimNames.Nbf);
+            return Payload.GetDateTime(JwtRegisteredClaimNames.Nbf);
         }
 
         /// <summary>
@@ -628,7 +627,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         internal DateTime ValidToFactory()
         {
-            return PayloadClaimSet.GetDateTime(JwtRegisteredClaimNames.Exp);
+            return Payload.GetDateTime(JwtRegisteredClaimNames.Exp);
         }
 
         /// <summary>
@@ -655,7 +654,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// </remarks>
         public Claim GetClaim(string key)
         {
-            return PayloadClaimSet.GetClaim(key, Issuer ?? ClaimsIdentity.DefaultIssuer);
+            return Payload.GetClaim(key, Issuer ?? ClaimsIdentity.DefaultIssuer);
         }
 
         /// <summary>
@@ -673,7 +672,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (string.IsNullOrEmpty(key))
                 throw LogHelper.LogArgumentNullException(nameof(key));
 
-            return HeaderClaimSet.GetValue<T>(key);
+            return Header.GetValue<T>(key);
         }
 
         /// <summary>
@@ -694,7 +693,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (typeof(T).Equals(typeof(Claim)))
                 return (T)(object)GetClaim(key);
 
-            return PayloadClaimSet.GetValue<T>(key);
+            return Payload.GetValue<T>(key);
         }
 
         internal int NumberOfSegments { get; private set; }
@@ -739,7 +738,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 _messageBytes = Encoding.UTF8.GetBytes(encodedJson.ToCharArray(0, dots[1]));
                 try
                 {
-                    HeaderClaimSet = new JsonClaimSet(Base64UrlEncoder.UnsafeDecode(_hChars));
+                    Header = new JsonClaimSet(Base64UrlEncoder.UnsafeDecode(_hChars));
                 }
                 catch(Exception ex)
                 {
@@ -748,7 +747,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
                 try
                 {
-                    PayloadClaimSet = new JsonClaimSet(Base64UrlEncoder.UnsafeDecode(_pChars));
+                    Payload = new JsonClaimSet(Base64UrlEncoder.UnsafeDecode(_pChars));
                 }
                 catch(Exception ex)
                 {
@@ -768,7 +767,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 _authenticationTagBytes = Base64UrlEncoder.UnsafeDecode(encodedJson.ToCharArray(dots[3] + 1, encodedJson.Length - dots[3] - 1));
                 try
                 {
-                    HeaderClaimSet = new JsonClaimSet(Base64UrlEncoder.UnsafeDecode(encodedHeader));
+                    Header = new JsonClaimSet(Base64UrlEncoder.UnsafeDecode(encodedHeader));
                 }
                 catch (Exception ex)
                 {
@@ -800,7 +799,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// <returns>true if successful, false otherwise.</returns>
         public bool TryGetClaim(string key, out Claim value)
         {
-            return PayloadClaimSet.TryGetClaim(key, Issuer ?? ClaimsIdentity.DefaultIssuer, out value);
+            return Payload.TryGetClaim(key, Issuer ?? ClaimsIdentity.DefaultIssuer, out value);
         }
 
         /// <summary>
@@ -827,9 +826,8 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 return foundClaim;
             }
 
-            return PayloadClaimSet.TryGetValue<T>(key, out value);
+            return Payload.TryGetValue<T>(key, out value);
         }
-
 
         /// <summary>
         /// Try to get the 'value' corresponding to key from the JWT header transformed as type 'T'.
@@ -848,14 +846,14 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 return false;
             }
 
-            return HeaderClaimSet.TryGetValue<T>(key, out value);
+            return Header.TryGetValue<T>(key, out value);
         }
 
         #region Factories for Lazy
 
         private string ZipFactory()
         {
-            return HeaderClaimSet.GetStringValue(JwtHeaderParameterNames.Zip);
+            return Header.GetStringValue(JwtHeaderParameterNames.Zip);
         }
 
         #endregion

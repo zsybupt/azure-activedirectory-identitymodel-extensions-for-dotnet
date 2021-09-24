@@ -978,7 +978,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 {
                     var innerToken = ValidateSignature(new JsonWebToken(DecryptToken(jwtToken, validationParameters)), validationParameters);
                     jwtToken.InnerToken = innerToken;
-                    jwtToken.PayloadClaimSet = innerToken.PayloadClaimSet;
+                    jwtToken.Payload = innerToken.Payload;
                     var innerTokenValidationResult = ValidateTokenPayload(innerToken, validationParameters);
                     return new TokenValidationResult
                     {
