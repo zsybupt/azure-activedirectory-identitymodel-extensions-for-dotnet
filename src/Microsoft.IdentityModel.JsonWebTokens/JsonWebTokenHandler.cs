@@ -960,18 +960,22 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             if (tokenParts.Length != JwtConstants.JwsSegmentCount && tokenParts.Length != JwtConstants.JweSegmentCount)
                 return new TokenValidationResult { Exception = LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14111, token))), IsValid = false };
 
+            var validationParametersCopy = validationParameters;
             if (validationParameters.ConfigurationManager != null)
             {
                 try
                 {
-                    validationParameters.Configuration = validationParameters.ConfigurationManager.GetBaseConfigurationAsync(CancellationToken.None).GetAwaiter().GetResult();
+                    var configuration = validationParametersCopy.ConfigurationManager.GetBaseConfigurationAsync(CancellationToken.None).GetAwaiter().GetResult();
+                    validationParametersCopy = validationParameters.Clone();
+                    validationParametersCopy.Configuration = configuration;
                 }
-                catch (AggregateException ex)
+                catch (Exception ex)
                 {
                     // If either a signing key or a valid issuer was not provided through the TVP, we want to stop processing on configuration retrieval failure.
                     // Otherwise, we should keep going with validation.
-                    if ((string.IsNullOrWhiteSpace(validationParameters.ValidIssuer) && validationParameters.ValidIssuers == null)
-                        || (validationParameters.IssuerSigningKey == null && validationParameters.IssuerSigningKeys == null))
+                    if ((validationParametersCopy.ValidateIssuer && string.IsNullOrWhiteSpace(validationParametersCopy.ValidIssuer) && (validationParametersCopy.ValidIssuers == null || !validationParametersCopy.ValidIssuers.Any()) && validationParametersCopy.IssuerValidator == null
+                        && validationParametersCopy.TokenDecryptionKey == null && (validationParametersCopy.TokenDecryptionKeys == null || !validationParametersCopy.TokenDecryptionKeys.Any()) && validationParametersCopy.TokenDecryptionKeyResolver == null)
+                        || (validationParametersCopy.RequireSignedTokens && validationParametersCopy.IssuerSigningKey == null && (validationParametersCopy.IssuerSigningKeys == null || !validationParametersCopy.IssuerSigningKeys.Any()) && validationParametersCopy.IssuerSigningKeyResolver == null))
                     {
                         return new TokenValidationResult
                         {
@@ -980,7 +984,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                         };
                     }
 
-                    LogHelper.LogInformation(LogHelper.FormatInvariant(TokenLogMessages.IDX10261, validationParameters.ConfigurationManager.MetadataAddress));
+                    LogHelper.LogInformation(LogHelper.FormatInvariant(TokenLogMessages.IDX10261, validationParametersCopy.ConfigurationManager.MetadataAddress));
                 }
             }
 
@@ -989,10 +993,10 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 if (tokenParts.Length == JwtConstants.JweSegmentCount)
                 {
                     var jwtToken = new JsonWebToken(token);
-                    var decryptedJwt = DecryptToken(jwtToken, validationParameters);
-                    var innerToken = ValidateSignature(decryptedJwt, validationParameters);
+                    var decryptedJwt = DecryptToken(jwtToken, validationParametersCopy);
+                    var innerToken = ValidateSignature(decryptedJwt, validationParametersCopy);
                     jwtToken.InnerToken = innerToken;
-                    var innerTokenValidationResult = ValidateTokenPayload(innerToken, validationParameters);
+                    var innerTokenValidationResult = ValidateTokenPayload(innerToken, validationParametersCopy);
                     return new TokenValidationResult
                     {
                         SecurityToken = jwtToken,
@@ -1003,8 +1007,8 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 }
                 else
                 {
-                    var jsonWebToken = ValidateSignature(token, validationParameters);
-                    return ValidateTokenPayload(jsonWebToken, validationParameters);
+                    var jsonWebToken = ValidateSignature(token, validationParametersCopy);
+                    return ValidateTokenPayload(jsonWebToken, validationParametersCopy);
                 }
             }
             catch (Exception ex)

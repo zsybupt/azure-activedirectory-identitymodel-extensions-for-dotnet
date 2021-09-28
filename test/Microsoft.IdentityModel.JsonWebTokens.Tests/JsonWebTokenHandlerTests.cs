@@ -2593,7 +2593,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                             ValidateAudience = false,
                             ValidateLifetime = false,
                         },
-                        ExpectedException = new ExpectedException(typeof(AggregateException), innerTypeExpected:typeof(InvalidOperationException))
+                        ExpectedException = new ExpectedException(typeof(InvalidOperationException), "IDX20803: ", typeof(IOException))
                     },
                     new JwtTheoryData
                     {

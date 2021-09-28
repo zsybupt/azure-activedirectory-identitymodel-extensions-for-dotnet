@@ -383,6 +383,9 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// <remarks>If key fails to resolve, then null is returned</remarks>
         private static SecurityKey ResolveTokenSigningKeyWithConfig(string kid, string x5t, TokenValidationParameters validationParameters)
         {
+            if (validationParameters.Configuration?.SigningKeys == null)
+                return null;
+
             if (!string.IsNullOrEmpty(kid))
             {             
                 if (validationParameters.Configuration?.SigningKeys != null)

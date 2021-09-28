@@ -134,8 +134,8 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect.Tests
             TestUtilities.SetGet(configManager, "RefreshInterval", TimeSpan.FromMilliseconds(1), ExpectedException.ArgumentOutOfRangeException(substringExpected: "IDX10107:"), context);
             TestUtilities.SetGet(configManager, "RefreshInterval", Timeout.InfiniteTimeSpan, ExpectedException.ArgumentOutOfRangeException(substringExpected: "IDX10107:"), context);
             TestUtilities.SetGet(configManager, "CurrentConfiguration", new OpenIdConnectConfiguration(), ExpectedException.NoExceptionExpected, context);
-            TestUtilities.SetGet(configManager, "LKGConfiguration", new OpenIdConnectConfiguration(), ExpectedException.NoExceptionExpected, context);
-            TestUtilities.SetGet(configManager, "UseLKG", true, ExpectedException.NoExceptionExpected, context);
+            TestUtilities.SetGet(configManager, "LastKnownGoodConfiguration", new OpenIdConnectConfiguration(), ExpectedException.NoExceptionExpected, context);
+            TestUtilities.SetGet(configManager, "UseLastKnownGoodConfiguration", true, ExpectedException.NoExceptionExpected, context);
             TestUtilities.SetGet(configManager, "MetadataAddress", "OpenIdConnectMetadata2.json", ExpectedException.NoExceptionExpected, context);
             TestUtilities.AssertFailIfErrors("ConfigurationManager_GetSets", context.Errors);
         }
