@@ -55,6 +55,20 @@ namespace Microsoft.IdentityModel.Protocols
         }
 
         /// <summary>
+        /// Initializes an new instance of <see cref="StaticConfigurationManager{T}"/> with a Configuration instance and a LKG Configuration instance.
+        /// </summary>
+        /// <param name="configuration">Configuration of type OpenIdConnectConfiguration or OpenIdConnectConfiguration.</param>
+        /// <param name="lkgConfiguration">Configuration of type OpenIdConnectConfiguration or OpenIdConnectConfiguration.</param>
+        public StaticConfigurationManager(T configuration, T lkgConfiguration)
+        {
+            if (configuration == null)
+                throw LogHelper.LogExceptionMessage(new ArgumentNullException(nameof(configuration), LogHelper.FormatInvariant(LogMessages.IDX20000, nameof(configuration))));
+
+            _configuration = configuration;
+            LKGConfiguration = lkgConfiguration as BaseConfiguration;
+        }
+
+        /// <summary>
         /// Obtains an updated version of Configuration.
         /// </summary>
         /// <param name="cancel"><see cref="CancellationToken"/>.</param>

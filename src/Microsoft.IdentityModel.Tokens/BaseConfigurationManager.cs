@@ -42,7 +42,7 @@ namespace Microsoft.IdentityModel.Tokens
         private TimeSpan _refreshInterval = DefaultRefreshInterval;
         private TimeSpan _lkgLifetime = DefaultLKGLifetime;
         private BaseConfiguration _lkgConfiguration;
-        private DateTimeOffset _lkgLastSet = DateTimeOffset.MaxValue;
+        private DateTimeOffset _lkgFirstUse = DateTimeOffset.MaxValue;
 
         /// <summary>
         /// Gets or sets the <see cref="TimeSpan"/> that controls how often an automatic metadata refresh should occur.
@@ -91,7 +91,9 @@ namespace Microsoft.IdentityModel.Tokens
             set
             {
                 _lkgConfiguration = value != null ? value : throw LogHelper.LogArgumentNullException(nameof(value));
-                _lkgLastSet = DateTime.UtcNow;
+
+                // only set this value the first time the LKG is used for validation
+                if (_lkgFirstUse.Equals(DateTime.MaxValue)) _lkgFirstUse = DateTime.UtcNow;
             }
         }
 
@@ -148,7 +150,7 @@ namespace Microsoft.IdentityModel.Tokens
         /// <summary>
         /// Indicates whether the LKG can be used, false by default.
         /// </summary>
-        public bool IsLKGValid => LKGConfiguration != null && _lkgLastSet + LKGLifetime < DateTime.UtcNow;
+        public bool IsLKGValid => LKGConfiguration != null && _lkgFirstUse + LKGLifetime < DateTime.UtcNow;
 
         /// <summary>
         /// Obtains an updated version of <see cref="BaseConfiguration"/> if the appropriate refresh interval has passed.
