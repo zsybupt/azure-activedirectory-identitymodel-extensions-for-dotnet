@@ -1004,7 +1004,10 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                     }
                     else if (tokenValidationResult.Exception.GetType().Equals(typeof(SecurityTokenInvalidConfigurationException)))
                     {
-                        if (validationParameters.ConfigurationManager.LKGConfiguration != null && !(validationParameters.ConfigurationManager.LKGConfiguration == validationParameters.Configuration))
+                        if (validationParameters.ConfigurationManager.UseLKG
+                            && validationParameters.ConfigurationManager.IsLKGValid
+                            && validationParameters.ConfigurationManager.LKGConfiguration != null
+                            && !(validationParameters.ConfigurationManager.LKGConfiguration == validationParameters.Configuration))
                         {
                             validationParameters.Configuration = validationParameters.ConfigurationManager.LKGConfiguration;
                             tokenValidationResult = ValidateJWEWithConfig(jwtToken, decryptedJwt, validationParameters);
@@ -1037,7 +1040,10 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                     }
                     else if (tokenValidationResult.Exception.GetType().Equals(typeof(SecurityTokenInvalidConfigurationException)))
                     {
-                        if (validationParameters.ConfigurationManager.LKGConfiguration != null && !(validationParameters.ConfigurationManager.LKGConfiguration == validationParameters.Configuration))
+                        if (validationParameters.ConfigurationManager.UseLKG
+                            && validationParameters.ConfigurationManager.IsLKGValid
+                            && validationParameters.ConfigurationManager.LKGConfiguration != null
+                            && !(validationParameters.ConfigurationManager.LKGConfiguration == validationParameters.Configuration))
                         {
                             validationParameters.Configuration = validationParameters.ConfigurationManager.LKGConfiguration;
                             tokenValidationResult = ValidateJWSWithConfig(token, validationParameters);
@@ -1196,7 +1202,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             }
             else
             {
-                SecurityKey key = JwtTokenUtilities.ResolveTokenSigningKey(jwtToken.Kid, jwtToken.X5t, validationParameters);
+                var key = JwtTokenUtilities.ResolveTokenSigningKey(jwtToken.Kid, jwtToken.X5t, validationParameters);
                 if (key != null)
                 {
                     kidMatched = true;

@@ -40,6 +40,9 @@ namespace Microsoft.IdentityModel.Tokens
     {
         private TimeSpan _automaticRefreshInterval = DefaultAutomaticRefreshInterval;
         private TimeSpan _refreshInterval = DefaultRefreshInterval;
+        private TimeSpan _lkgLifetime = DefaultLKGLifetime;
+        private BaseConfiguration _lkgConfiguration;
+        private DateTimeOffset _lastLKGSet = DateTimeOffset.MaxValue;
 
         /// <summary>
         /// Gets or sets the <see cref="TimeSpan"/> that controls how often an automatic metadata refresh should occur.
@@ -74,7 +77,33 @@ namespace Microsoft.IdentityModel.Tokens
         /// <summary>
         /// The last known good configuration (a configuration retrieved in the past that we were able to successfully validate a token against).
         /// </summary>
-        public BaseConfiguration LKGConfiguration { get; set; }
+        public BaseConfiguration LKGConfiguration
+        {
+            get
+            {
+                return _lkgConfiguration;
+            }
+            set
+            {
+                _lkgConfiguration = value != null ? value : throw LogHelper.LogArgumentNullException(nameof(value));
+                _lastLKGSet = DateTime.UtcNow;
+            }
+        }
+
+        /// <summary>
+        /// The length of time that an LKG configuration is valid for.
+        /// </summary>
+        public TimeSpan LKGLifetime
+        {
+            get { return _lkgLifetime; }
+            set
+            {
+                if (value < TimeSpan.Zero)
+                    throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(nameof(value), LogHelper.FormatInvariant(LogMessages.IDX10108, value)));
+
+                _lkgLifetime = value;
+            }
+        }
 
         /// <summary>
         /// The metadata address to retrieve the configuration from.
@@ -107,9 +136,14 @@ namespace Microsoft.IdentityModel.Tokens
         }
 
         /// <summary>
-        /// Indicates whether the LKG can be used, false by default.
+        /// Indicates whether the LKG feature should be used.
         /// </summary>
         public bool UseLKG { get; set; } = false;
+
+        /// <summary>
+        /// Indicates whether the LKG can be used, false by default.
+        /// </summary>
+        public bool IsLKGValid => LKGConfiguration != null && LKGLastAccess + LKGLifetime < DateTime.UtcNow;
 
         /// <summary>
         /// Obtains an updated version of <see cref="BaseConfiguration"/> if the appropriate refresh interval has passed.
