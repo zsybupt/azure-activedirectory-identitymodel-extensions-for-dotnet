@@ -42,7 +42,7 @@ namespace Microsoft.IdentityModel.Tokens
         private TimeSpan _refreshInterval = DefaultRefreshInterval;
         private TimeSpan _lkgLifetime = DefaultLKGLifetime;
         private BaseConfiguration _lkgConfiguration;
-        private DateTimeOffset _lastLKGSet = DateTimeOffset.MaxValue;
+        private DateTimeOffset _lkgLastSet = DateTimeOffset.MaxValue;
 
         /// <summary>
         /// Gets or sets the <see cref="TimeSpan"/> that controls how often an automatic metadata refresh should occur.
@@ -70,6 +70,11 @@ namespace Microsoft.IdentityModel.Tokens
         public static readonly TimeSpan DefaultAutomaticRefreshInterval = new TimeSpan(0, 12, 0, 0);
 
         /// <summary>
+        /// 1 hour is the default time interval that an LKG will last for.
+        /// </summary>
+        public static readonly TimeSpan DefaultLKGLifetime = new TimeSpan(0, 1, 0, 0);
+
+        /// <summary>
         /// 5 minutes is the default time interval that must pass for <see cref="RequestRefresh"/> to obtain a new configuration.
         /// </summary>
         public static readonly TimeSpan DefaultRefreshInterval = new TimeSpan(0, 0, 5, 0);
@@ -86,7 +91,7 @@ namespace Microsoft.IdentityModel.Tokens
             set
             {
                 _lkgConfiguration = value != null ? value : throw LogHelper.LogArgumentNullException(nameof(value));
-                _lastLKGSet = DateTime.UtcNow;
+                _lkgLastSet = DateTime.UtcNow;
             }
         }
 
@@ -143,7 +148,7 @@ namespace Microsoft.IdentityModel.Tokens
         /// <summary>
         /// Indicates whether the LKG can be used, false by default.
         /// </summary>
-        public bool IsLKGValid => LKGConfiguration != null && LKGLastAccess + LKGLifetime < DateTime.UtcNow;
+        public bool IsLKGValid => LKGConfiguration != null && _lkgLastSet + LKGLifetime < DateTime.UtcNow;
 
         /// <summary>
         /// Obtains an updated version of <see cref="BaseConfiguration"/> if the appropriate refresh interval has passed.
