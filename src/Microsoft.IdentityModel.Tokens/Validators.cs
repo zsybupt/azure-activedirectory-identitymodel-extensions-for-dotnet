@@ -224,7 +224,7 @@ namespace Microsoft.IdentityModel.Tokens
                     { InvalidIssuer = issuer });
 
             // Throw if all possible places to validate against are null or empty
-            if (string.IsNullOrWhiteSpace(validationParameters.ValidIssuer) && (validationParameters.ValidIssuers == null) && (validationParameters.Configuration?.Issuer == null))
+            if (string.IsNullOrWhiteSpace(validationParameters.ValidIssuer) && (validationParameters.ValidIssuers == null || !validationParameters.ValidIssuers.Any()) && (validationParameters.Configuration?.Issuer == null))
                 throw LogHelper.LogExceptionMessage(new SecurityTokenInvalidIssuerException(LogMessages.IDX10204)
                     { InvalidIssuer = issuer });
 
