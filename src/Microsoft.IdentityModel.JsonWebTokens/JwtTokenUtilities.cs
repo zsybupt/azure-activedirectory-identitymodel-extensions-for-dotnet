@@ -387,31 +387,26 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 return null;
 
             if (!string.IsNullOrEmpty(kid))
-            {             
-                if (validationParameters.Configuration?.SigningKeys != null)
+            {
+                foreach (SecurityKey signingKey in validationParameters.Configuration.SigningKeys)
                 {
-                    foreach (SecurityKey signingKey in validationParameters.Configuration.SigningKeys)
+                    if (signingKey != null && string.Equals(signingKey.KeyId, kid, signingKey is X509SecurityKey ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
                     {
-                        if (signingKey != null && string.Equals(signingKey.KeyId, kid, signingKey is X509SecurityKey ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-                        {
-                            return signingKey;
-                        }
+                        return signingKey;
                     }
                 }
             }
 
             if (!string.IsNullOrEmpty(x5t))
-            {            
-                if (validationParameters.Configuration?.SigningKeys != null)
+            {
+                foreach (SecurityKey signingKey in validationParameters.Configuration.SigningKeys)
                 {
-                    foreach (SecurityKey signingKey in validationParameters.Configuration.SigningKeys)
+                    if (signingKey != null && string.Equals(signingKey.KeyId, x5t, StringComparison.Ordinal))
                     {
-                        if (signingKey != null && string.Equals(signingKey.KeyId, x5t, StringComparison.Ordinal))
-                        {
-                            return signingKey;
-                        }
+                        return signingKey;
                     }
                 }
+
             }
 
             return null;
