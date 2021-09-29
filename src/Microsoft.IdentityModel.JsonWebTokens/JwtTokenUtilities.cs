@@ -391,9 +391,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 foreach (SecurityKey signingKey in validationParameters.Configuration.SigningKeys)
                 {
                     if (signingKey != null && string.Equals(signingKey.KeyId, kid, signingKey is X509SecurityKey ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-                    {
                         return signingKey;
-                    }
                 }
             }
 
@@ -402,9 +400,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 foreach (SecurityKey signingKey in validationParameters.Configuration.SigningKeys)
                 {
                     if (signingKey != null && string.Equals(signingKey.KeyId, x5t, StringComparison.Ordinal))
-                    {
                         return signingKey;
-                    }
                 }
 
             }
