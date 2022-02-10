@@ -38,10 +38,10 @@ namespace Microsoft.IdentityModel.Tokens
     {
         private const char base64PadCharacter = '=';
 #if NET45
-        private const string doubleBase64PadCharacter = "==";
+       // private const string doubleBase64PadCharacter = "==";
 #endif
-        private const char base64Character62 = '+';
-        private const char base64Character63 = '/';
+        //private const char base64Character62 = '+';
+        //private const char base64Character63 = '/';
         private const char base64UrlCharacter62 = '-';
         private const char base64UrlCharacter63 = '_';
 
@@ -55,6 +55,26 @@ namespace Microsoft.IdentityModel.Tokens
             '0','1','2','3','4','5','6','7','8','9',
             base64UrlCharacter62,
             base64UrlCharacter63
+        };
+
+        private static readonly sbyte[] s_base64UrlDecodeTable = // rely on C# compiler optimization to reference static data
+        {
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 62, -1, 62, -1, 63,         // 62 is placed at index 43 (for +), 63 at index 47 (for /)
+            52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -1, -1, -1, -1, -1, -1,         // 52-61 are placed at index 48-57 (for 0-9), 64 at index 61 (for =)
+            -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+            15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -1, -1, -1, 63,         // 0-25 are placed at index 65-90 (for A-Z)
+            -1, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+            41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, -1, -1, -1, -1, -1,         // 26-51 are placed at index 97-122 (for a-z)
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,         // Bytes over 122 ('z') are invalid and cannot be decoded
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,         // Hence, padding the map with 255, which indicates invalid input
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         };
 
         /// <summary>
@@ -178,102 +198,111 @@ namespace Microsoft.IdentityModel.Tokens
         /// <returns>UTF8 bytes.</returns>
         public static byte[] DecodeBytes(string str)
         {
-            _ = str ?? throw LogHelper.LogExceptionMessage(new ArgumentNullException(nameof(str)));
-#if NET45
-            // 62nd char of encoding
-            str = str.Replace(base64UrlCharacter62, base64Character62);
-            
-            // 63rd char of encoding
-            str = str.Replace(base64UrlCharacter63, base64Character63);
+            _ = str ?? throw LogHelper.LogExceptionMessage(new FormatException(LogHelper.FormatInvariant(LogMessages.IDX10400, str)));
 
-            // check for padding
-            switch (str.Length % 4)
+            int length = GetStringEnd(str);
+            int mod = length % 4;
+            if (mod == 1)// mod can only be 0, 2 or 3 after encoding.
             {
-                case 0:
-                    // No pad chars in this case
-                    break;
-                case 2:
-                    // Two pad chars
-                    str += doubleBase64PadCharacter;
-                    break;
-                case 3:
-                    // One pad char
-                    str += base64PadCharacter;
-                    break;
-                default:
-                    throw LogHelper.LogExceptionMessage(new FormatException(LogHelper.FormatInvariant(LogMessages.IDX10400, str)));
+                throw LogHelper.LogExceptionMessage(new FormatException("bad format base64urlencoded string"));
+            }
+            int left = mod == 0 ? 0 : mod - 1;
+            int limit = length - mod;
+            int resultLength = length / 4 * 3 + left;
+            byte[] result = new byte[resultLength];
+            int encodedIndex = 0;
+            int decodedIndex = 0;
+            for (; encodedIndex < limit; encodedIndex += 4)
+            {
+                int i0 = str[encodedIndex];
+                int i1 = str[encodedIndex + 1];
+                int i2 = str[encodedIndex + 2];
+                int i3 = str[encodedIndex + 3];
+
+                if (((i0 | i1 | i2 | i3) & 0xffffff00) != 0)
+                {
+                    throw LogHelper.LogExceptionMessage(new FormatException("bad format base64urlencoded string"));
+                }
+                i0 = s_base64UrlDecodeTable[i0];
+                i1 = s_base64UrlDecodeTable[i1];
+                i2 = s_base64UrlDecodeTable[i2];
+                i3 = s_base64UrlDecodeTable[i3];
+
+                i0 <<= 18;
+                i1 <<= 12;
+                i2 <<= 6;
+
+                i0 |= i3;
+                i1 |= i2;
+                i0 |= i1;
+
+                if (i0 < 0)
+                {
+                    throw LogHelper.LogExceptionMessage(new FormatException("bad format base64urlencoded string"));
+                }
+
+                result[decodedIndex] = (byte)(i0 >> 16);
+                result[decodedIndex + 1] = (byte)(i0 >> 8);
+                result[decodedIndex + 2] = (byte)i0;
+
+                decodedIndex += 3;
             }
 
-            return Convert.FromBase64String(str);
-#else
-            return UnsafeDecode(str);
-#endif
+            encodedIndex = limit;
+
+            if (mod == 2)
+            {
+                int i0 = str[encodedIndex];
+                int i1 = str[encodedIndex + 1];
+                if (((i0 | i1) & 0xffffff00) != 0)
+                {
+                    throw LogHelper.LogExceptionMessage(new FormatException("bad format base64urlencoded string"));
+                }
+                i0 = s_base64UrlDecodeTable[i0];
+                i1 = s_base64UrlDecodeTable[i1];
+
+                i0 <<= 2;
+                i1 >>= 4;
+                i0 = i0 | i1;
+                if (i0 < 0)
+                {
+                    throw LogHelper.LogExceptionMessage(new FormatException("bad format base64urlencoded string"));
+                }
+
+                result[decodedIndex] = (byte)i0;
+            }
+            else if (mod == 3)
+            {
+                int i0 = str[encodedIndex];
+                int i1 = str[encodedIndex + 1];
+                int i2 = str[encodedIndex + 2];
+
+                if (((i0 | i1) & 0xffffff00) != 0)
+                {
+                    throw LogHelper.LogExceptionMessage(new FormatException("bad format base64urlencoded string"));
+                }
+
+                i0 = s_base64UrlDecodeTable[i0];
+                i1 = s_base64UrlDecodeTable[i1];
+                i2 = s_base64UrlDecodeTable[i2];
+
+                i0 <<= 12;
+                i1 <<= 6;
+                i1 |= i2;
+                i0 |= i1;
+
+                if (i0 < 0)
+                {
+                    throw LogHelper.LogExceptionMessage(new FormatException("bad format base64urlencoded string"));
+                }
+
+                result[decodedIndex] = (byte)(i0 >> 10);
+                decodedIndex++;
+                result[decodedIndex] = (byte)(i0 >> 2);
+            }
+
+            return result;
         }
-
-#if !NET45
-        private unsafe static byte[] UnsafeDecode(string str)
-        {
-            int mod = str.Length % 4;
-            if (mod == 1)
-                throw LogHelper.LogExceptionMessage(new FormatException(LogHelper.FormatInvariant(LogMessages.IDX10400, str)));
-
-            bool needReplace = false;
-            int decodedLength = str.Length + (4 - mod) % 4;
-
-            for (int i = 0; i < str.Length; i++)
-            {
-                if (str[i] == base64UrlCharacter62 || str[i] == base64UrlCharacter63)
-                {
-                    needReplace = true;
-                    break;
-                }
-            }
-
-            if (needReplace)
-            {
-                string decodedString = new string(char.MinValue, decodedLength);
-                fixed (char* dest = decodedString)
-                {
-                    int i = 0;
-                    for (; i < str.Length; i++)
-                    {
-                        if (str[i] == base64UrlCharacter62)
-                            dest[i] = base64Character62;
-                        else if (str[i] == base64UrlCharacter63)
-                            dest[i] = base64Character63;
-                        else
-                            dest[i] = str[i];
-                    }
-
-                    for (; i < decodedLength; i++)
-                        dest[i] = base64PadCharacter;
-                }
-
-                return Convert.FromBase64String(decodedString);
-            }
-            else
-            {
-                if (decodedLength == str.Length)
-                {
-                    return Convert.FromBase64String(str);
-                }
-                else
-                {
-                    string decodedString = new string(char.MinValue, decodedLength);
-                    fixed (char* src = str)
-                    fixed (char* dest = decodedString)
-                    {
-                        Buffer.MemoryCopy(src, dest, str.Length * 2, str.Length * 2);
-                        dest[str.Length] = base64PadCharacter;
-                        if (str.Length + 2 == decodedLength)
-                            dest[str.Length + 1] = base64PadCharacter;
-                    }
-
-                    return Convert.FromBase64String(decodedString);
-                }
-            }
-        }
-#endif
 
         /// <summary>
         /// Decodes the string from Base64UrlEncoded to UTF8.
@@ -283,6 +312,31 @@ namespace Microsoft.IdentityModel.Tokens
         public static string Decode(string arg)
         {
             return Encoding.UTF8.GetString(DecodeBytes(arg));
+        }
+
+        private static int GetStringEnd(string str)
+        {
+            int length = str.Length;
+            if (length == 0)
+            {
+                return 0;
+            }
+            if (str[length - 1] != base64PadCharacter)
+            {
+                return length;
+            }
+
+            if (length % 4 != 0) // invalid base64 string
+            {
+                throw new ArgumentException($"{str} is not a valid base64 or base64url string");
+            }
+
+            if (str[length - 2] == base64PadCharacter)
+            {
+                return length - 2;
+            }
+
+            return length - 1;
         }
     }
 }
